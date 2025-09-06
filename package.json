@@ -5,6 +5,7 @@
   "main": "src/main.js",
   "scripts": {
     "start": "ts-node src/main.ts",
+    "mcp": "ts-node src/mcp/server.ts",
     "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -27,7 +28,9 @@
     "ora": "^5.4.1",
     "fs-extra": "^11.1.1",
     "dotenv": "^16.3.1",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "@modelcontextprotocol/sdk": "^1.5.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20.8.0",

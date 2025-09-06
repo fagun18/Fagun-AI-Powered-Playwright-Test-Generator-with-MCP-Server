@@ -90,6 +90,34 @@ npm run start -- interactive
 npm run start -- setup
 ```
 
+### MCP Server (Model Context Protocol)
+
+Expose the framework as an MCP tool that LLMs or MCP-compatible clients can call to analyze, generate, run, and report.
+
+```bash
+# Start the MCP server over stdio
+npm run mcp
+
+# Tool: run_all
+# Input schema:
+# {
+#   "url": "https://example.com",
+#   "deeper": false,          // optional
+#   "login": {                // optional
+#     "required": true,
+#     "loginUrl": "https://example.com/login",
+#     "username": "user@example.com",
+#     "password": "secret",
+#     "usernameSelector": "#email",
+#     "passwordSelector": "#password",
+#     "submitSelector": "button[type=submit]"
+#   }
+# }
+# Output contains pass/fail summary, report path, counts by test type, pages analyzed, total elements, and broken links.
+```
+
+Configure your MCP client to spawn `npm run mcp` as a stdio server named `fagun-playwright-mcp`.
+
 ### Python Version
 
 ```bash
