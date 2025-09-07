@@ -6,6 +6,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { TestGenerator } from './generator/TestGenerator';
 import { PlaywrightRunner } from './runner/PlaywrightRunner';
+import { EnhancedPlaywrightRunner } from './runner/EnhancedPlaywrightRunner';
 import { TestReporter } from './reporter/TestReporter';
 import { TestSuite, LoginConfig } from './types';
 import config from './config';
@@ -13,6 +14,7 @@ import { logger } from './utils/logger';
 import { ErrorHandler, ErrorFactory } from './utils/errors';
 import { Validator } from './utils/validator';
 import { Utils } from './utils/helpers';
+import { InteractiveCLI } from './cli/interactive';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 
@@ -379,9 +381,48 @@ program
   .command('run')
   .description('Run automated testing with interactive prompts')
   .action(async () => {
-    const automation = new FagunAutomation();
-    await automation.run();
+    const cli = new InteractiveCLI();
+    await cli.start();
   });
+
+program
+  .command('comprehensive')
+  .description('Run comprehensive testing with all advanced features')
+  .option('-u, --url <url>', 'Target website URL')
+  .option('-k, --api-key <key>', 'Gemini API key')
+  .action(async (options) => {
+    try {
+      const testGenerator = new TestGenerator();
+      const testRunner = new EnhancedPlaywrightRunner();
+      const testReporter = new TestReporter();
+
+      const targetUrl = options.url || 'https://devxhub.com';
+      console.log(chalk.blue(`🚀 Starting comprehensive testing for: ${targetUrl}`));
+
+      // Generate comprehensive test suite
+      const testSuite = await testGenerator.generateComprehensiveTestSuite(targetUrl, null);
+      
+      // Run tests
+      const results = await testRunner.runTestSuite(testSuite);
+      testSuite.results = results;
+
+      // Generate report
+      const reportPath = await testReporter.generateReport(testSuite);
+      console.log(chalk.green(`📊 Comprehensive test report generated: ${reportPath}`));
+
+      // Show suggestions
+      const suggestions = testGenerator.getTestTypeSuggestions();
+      console.log(chalk.yellow('\n💡 Additional Test Type Suggestions:'));
+      suggestions.slice(0, 5).forEach(suggestion => {
+        console.log(chalk.gray(`   • ${suggestion.name} (${suggestion.priority})`));
+      });
+
+    } catch (error) {
+      console.error(chalk.red('❌ Comprehensive testing failed:'), error);
+      process.exit(1);
+    }
+  });
+
 
 program
   .command('interactive')

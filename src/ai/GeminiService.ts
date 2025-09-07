@@ -81,19 +81,30 @@ Website Analysis:
 Sample Pages and Elements:
 ${JSON.stringify(pagesInfo, null, 2)}
 
-Please generate test cases covering the following categories:
-1. Functional Testing (form submissions, button clicks, navigation)
-2. UI Testing (element visibility, responsiveness, user interactions)
-3. Accessibility Testing (ARIA labels, keyboard navigation, screen reader compatibility)
-4. Performance Testing (page load times, resource optimization)
-5. Security Testing (input validation, XSS prevention, CSRF protection)
-6. Integration Testing (API calls, third-party integrations)
+Please generate comprehensive test cases covering the following categories:
+1. Functional Testing (form submissions, button clicks, navigation, user workflows)
+2. UI Testing (element visibility, responsiveness, user interactions, visual consistency)
+3. Accessibility Testing (ARIA labels, keyboard navigation, screen reader compatibility, WCAG compliance)
+4. Performance Testing (page load times, resource optimization, Core Web Vitals, speed metrics)
+5. Security Testing (input validation, XSS prevention, CSRF protection, authentication, authorization)
+6. Integration Testing (API calls, third-party integrations, external services)
+7. API Testing (REST endpoints, GraphQL, authentication, rate limiting, error handling)
+8. Cross-Browser Testing (Chrome, Firefox, Safari, Edge compatibility)
+9. Visual Regression Testing (UI consistency, layout changes, design validation)
+10. End-to-End Workflow Testing (complete user journeys, business processes, critical paths)
+11. Edge Case Testing (boundary conditions, error scenarios, stress conditions, unusual inputs)
+12. Mobile Testing (responsive design, touch interactions, device-specific features)
+13. Data-Driven Testing (multiple data sets, parameterized tests, validation scenarios)
+14. Stress Testing (high load, concurrent users, resource exhaustion)
+15. Load Testing (performance under normal and peak loads)
+16. Usability Testing (user experience, navigation flow, content accessibility)
+17. Compatibility Testing (browser versions, operating systems, device types)
 
 For each test case, provide:
 - Unique ID
 - Descriptive name
 - Detailed description
-- Test type (functional, ui, accessibility, performance, security, integration)
+- Test type (functional, ui, accessibility, performance, security, integration, api, cross-browser, visual-regression, e2e-workflow, edge-case, mobile, data-driven, stress, load, usability, compatibility)
 - Priority (high, medium, low)
 - Step-by-step test steps with specific actions
 - Expected result
@@ -105,11 +116,11 @@ Format the response as a JSON array of test cases. Each test case should have th
   "id": "unique_id",
   "name": "Test Case Name",
   "description": "Detailed description of what this test validates",
-  "type": "functional|ui|accessibility|performance|security|integration",
+  "type": "functional|ui|accessibility|performance|security|integration|api|cross-browser|visual-regression|e2e-workflow|edge-case|mobile|data-driven|stress|load|usability|compatibility",
   "priority": "high|medium|low",
   "steps": [
     {
-      "action": "click|type|select|hover|scroll|wait|assert|navigate",
+      "action": "click|type|select|hover|scroll|wait|assert|navigate|api-call|screenshot|drag|drop|keyboard|mouse|file-upload|download|clear|focus|blur|double-click|right-click|swipe|pinch|rotate|shake|network-throttle|emulate-device|set-cookie|clear-cookies|local-storage|session-storage|geolocation|permissions|notification|push|pop|back|forward|refresh|reload|close|minimize|maximize|fullscreen|exit-fullscreen",
       "target": "element_selector_or_url",
       "value": "input_value_if_applicable",
       "assertion": "expected_condition",
@@ -204,8 +215,8 @@ Target site: ${analysis.baseUrl}. Sample pages: ${pages}.`;
     analysis.pages.forEach(page => {
       // Navigation test
       testCases.push({
-        id: `nav_${testId++}`,
-        name: `Navigate to ${page.title}`,
+        id: `ai_nav_${testId++}`,
+        name: `🌐 Navigate to ${page.title}`,
         description: `Test navigation to ${page.url}`,
         type: 'functional',
         priority: 'high',
@@ -229,9 +240,10 @@ Target site: ${analysis.baseUrl}. Sample pages: ${pages}.`;
 
       // Form tests
       page.forms.forEach(form => {
+        const formName = form.text || form.placeholder || 'Contact Form';
         testCases.push({
-          id: `form_${testId++}`,
-          name: `Test form submission on ${page.title}`,
+          id: `ai_form_${testId++}`,
+          name: `📝 ${formName} Submission Test`,
           description: `Test form functionality on ${page.url}`,
           type: 'functional',
           priority: 'high',
@@ -258,9 +270,10 @@ Target site: ${analysis.baseUrl}. Sample pages: ${pages}.`;
       // Button tests
       const buttons = page.elements.filter(el => el.type === 'button');
       buttons.forEach(button => {
+        const buttonText = button.text || 'Unnamed Button';
         testCases.push({
-          id: `button_${testId++}`,
-          name: `Test button: ${button.text || 'Unnamed button'}`,
+          id: `ai_btn_${testId++}`,
+          name: `🔘 Test Button: ${buttonText}`,
           description: `Test button functionality on ${page.url}`,
           type: 'functional',
           priority: 'medium',

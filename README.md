@@ -1,6 +1,6 @@
 # 🚀 Fagun Automation Framework
 
-**AI-powered automated testing framework using Playwright and Gemini AI**
+**AI-powered automated testing framework using Playwright, MCP Server and Gemini AI**
 
 An intelligent automation testing framework that automatically analyzes websites, generates comprehensive test cases using AI, and executes them with detailed reporting.
 
@@ -35,7 +35,7 @@ An intelligent automation testing framework that automatically analyzes websites
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/fagun18/Fagun-AI-Powered-Playwright-Test-Generator-with-MCP-Server.git
 cd fagun-automation
 
 # Install dependencies
@@ -53,7 +53,7 @@ cp config.env.example config.env
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/fagun18/Fagun-AI-Powered-Playwright-Test-Generator-with-MCP-Server.git
 cd fagun-automation
 
 # Install dependencies
@@ -174,39 +174,190 @@ Options:
   --help                   Show this message and exit.
 ```
 
-## 🧪 Test Types Generated
+## 🧪 Comprehensive Test Types Generated
 
-The framework automatically generates tests for:
+The framework automatically generates tests across **17 different test categories**:
 
 ### 🔧 Functional Testing
 - Form submissions and validations
 - Button clicks and interactions
 - Navigation and routing
-- User workflows
+- User workflows and business processes
+- Input field validations
+- Dropdown selections and interactions
 
 ### 🎨 UI Testing
 - Element visibility and accessibility
 - Responsive design validation
 - User interface interactions
-- Visual regression testing
+- Visual consistency checks
+- Layout and positioning validation
+- Interactive element behavior
 
 ### ♿ Accessibility Testing
 - ARIA labels and attributes
 - Keyboard navigation
 - Screen reader compatibility
 - Color contrast validation
+- WCAG compliance checks
+- Focus management
 
 ### ⚡ Performance Testing
 - Page load times
 - Resource optimization
-- Core Web Vitals
+- Core Web Vitals monitoring
 - Network performance
+- Speed metrics validation
+- Performance regression detection
 
 ### 🔒 Security Testing
 - XSS prevention
 - Input validation
 - CSRF protection
-- Security headers
+- Security headers validation
+- Authentication testing
+- Authorization checks
+- SQL injection prevention
+- Path traversal protection
+
+### 🔌 API Testing
+- REST endpoint validation
+- GraphQL query testing
+- Authentication mechanisms
+- Rate limiting verification
+- Error handling validation
+- Response format checking
+- API integration testing
+
+### 🌐 Cross-Browser Testing
+- Chrome compatibility
+- Firefox compatibility
+- Safari compatibility
+- Edge compatibility
+- WebKit compatibility
+- Browser-specific feature testing
+
+### 👁️ Visual Regression Testing
+- UI consistency validation
+- Layout change detection
+- Design regression prevention
+- Screenshot comparison
+- Visual element validation
+- Cross-device visual testing
+
+### 🔄 End-to-End Workflow Testing
+- Complete user journeys
+- Business process validation
+- Critical path testing
+- Multi-step workflows
+- User scenario simulation
+- Integration flow testing
+
+### 🎯 Edge Case Testing
+- Boundary condition testing
+- Error scenario handling
+- Stress condition validation
+- Unusual input testing
+- Network failure simulation
+- Resource exhaustion testing
+
+### 📱 Mobile Testing
+- Responsive design validation
+- Touch interaction testing
+- Device-specific features
+- Mobile navigation testing
+- Touch-friendly element validation
+- Mobile performance testing
+
+### 📊 Data-Driven Testing
+- Multiple data set validation
+- Parameterized test execution
+- Form validation scenarios
+- User credential testing
+- Product data validation
+- Payment processing testing
+
+### 💪 Stress Testing
+- High load simulation
+- Concurrent user testing
+- Resource exhaustion testing
+- System stability validation
+- Performance under stress
+- Memory leak detection
+
+### ⚡ Load Testing
+- Normal load performance
+- Peak load handling
+- Scalability validation
+- Response time monitoring
+- Throughput measurement
+- System capacity testing
+
+### 👥 Usability Testing
+- User experience validation
+- Navigation flow testing
+- Content accessibility
+- User interface intuitiveness
+- Task completion validation
+- User satisfaction metrics
+
+### 🔧 Compatibility Testing
+- Browser version compatibility
+- Operating system compatibility
+- Device type compatibility
+- JavaScript compatibility
+- CSS compatibility
+- Feature support validation
+
+## 🆕 New Advanced Features
+
+### 📋 Test Templates
+Pre-built test templates for common scenarios:
+- **Login Flow**: Complete authentication testing
+- **Form Validation**: Data validation testing
+- **API Endpoint**: REST/GraphQL testing
+- **Mobile Responsive**: Device compatibility testing
+- **Visual Regression**: UI consistency testing
+- **Performance Audit**: Speed and metrics testing
+- **Accessibility Audit**: WCAG compliance testing
+- **Security Scan**: Vulnerability testing
+- **Cross-Browser**: Browser compatibility testing
+- **Edge Case**: Boundary condition testing
+
+### 📊 Test Data Management
+Comprehensive test data sets:
+- **User Credentials**: Various user roles and permissions
+- **Form Validation Data**: Input validation scenarios
+- **Product Data**: E-commerce testing data
+- **Order Data**: Transaction testing data
+- **Payment Data**: Payment processing scenarios
+- **API Test Data**: Endpoint testing configurations
+- **Mobile Device Data**: Device specifications
+- **Browser Data**: Browser configurations
+- **Performance Data**: Performance thresholds
+- **Security Payloads**: Security test vectors
+
+### 🎯 Advanced Test Actions
+Extended action library:
+- **API Calls**: REST/GraphQL requests
+- **Screenshots**: Visual capture and comparison
+- **Drag & Drop**: Interactive element testing
+- **File Operations**: Upload/download testing
+- **Network Simulation**: Throttling and offline testing
+- **Device Emulation**: Mobile device simulation
+- **Storage Testing**: Local/session storage validation
+- **Geolocation**: Location-based testing
+- **Permissions**: Browser permission testing
+- **Notifications**: Push notification testing
+
+### 🔧 Enhanced Configuration
+Advanced configuration options:
+- **Multi-Browser Support**: Chrome, Firefox, Safari, Edge
+- **Device Emulation**: iPhone, Android, iPad, Desktop
+- **Network Conditions**: 3G, 4G, WiFi, Offline
+- **Performance Monitoring**: Core Web Vitals tracking
+- **Security Scanning**: Automated vulnerability detection
+- **Accessibility Auditing**: WCAG compliance checking
 
 ## 📊 Reports
 
