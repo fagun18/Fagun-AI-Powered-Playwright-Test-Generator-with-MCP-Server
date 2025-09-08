@@ -6,10 +6,7 @@ An intelligent automation testing framework that automatically analyzes websites
 
 ## 🎥 Demo
 
-<div style="border: 2px solid #4c4cff; border-radius: 14px; padding: 8px; background: linear-gradient(135deg, rgba(76,76,255,0.08), rgba(0,0,0,0.08)); max-width: 980px; text-align: center;">
-  <img src="Recording.gif" alt="Demo recording" style="width: 100%; max-width: 960px; border-radius: 10px; display: block; margin: 0 auto;" />
-  <p><a href="https://raw.githubusercontent.com/fagun18/Fagun-AI-Powered-Playwright-Test-Generator-with-MCP-Server/main/Recording.gif">Open Recording.gif</a></p>
-</div>
+![](Recording.gif)
 
 ## ✨ Features
 
