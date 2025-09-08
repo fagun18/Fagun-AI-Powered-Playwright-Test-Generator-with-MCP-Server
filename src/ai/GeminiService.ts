@@ -7,25 +7,47 @@ import config from '../config';
 export class GeminiService {
   private genAI: GoogleGenerativeAI;
   private model: any;
+  private aiEnabled: boolean = false;
 
   constructor() {
     if (!config.gemini.apiKey) {
-      throw new Error('GEMINI_API_KEY is required. Please set it in your environment variables.');
+      console.warn('🔕 GEMINI_API_KEY not set. Proceeding with built-in fallback test generation.');
+      this.aiEnabled = false;
+      // Avoid initializing SDK when no key is present
+      // @ts-expect-error intentionally unset when disabled
+      this.genAI = undefined;
+      this.model = null;
+      return;
     }
-    
-    this.genAI = new GoogleGenerativeAI(config.gemini.apiKey);
-    this.model = this.genAI.getGenerativeModel({
-      model: config.gemini.model,
-      generationConfig: {
-        maxOutputTokens: config.gemini.maxTokens,
-        temperature: config.gemini.temperature,
-      }
-    });
+
+    try {
+      this.genAI = new GoogleGenerativeAI(config.gemini.apiKey);
+      this.model = this.genAI.getGenerativeModel({
+        model: config.gemini.model,
+        generationConfig: {
+          maxOutputTokens: config.gemini.maxTokens,
+          temperature: config.gemini.temperature,
+        }
+      });
+      this.aiEnabled = true;
+    } catch (err) {
+      console.warn('🔕 Failed to initialize Gemini SDK. Falling back to built-in tests.', err);
+      this.aiEnabled = false;
+      // @ts-expect-error intentionally unset when disabled
+      this.genAI = undefined;
+      this.model = null;
+    }
   }
 
   async generateTestCases(analysis: WebsiteAnalysis): Promise<TestCase[]> {
     console.log('🤖 Generating test cases using Gemini AI...');
     
+    // If AI is disabled (no/invalid key or init failure), return fallback immediately
+    if (!this.aiEnabled || !this.model) {
+      console.warn('⚠️  AI disabled or unavailable. Using fallback test generation.');
+      return this.generateFallbackTestCases(analysis);
+    }
+
     try {
       const prompts: string[] = [
         this.buildJsonOnlyPrompt(analysis, config.test.maxTestCases),
@@ -51,7 +73,8 @@ export class GeminiService {
       
     } catch (error) {
       console.error('❌ Error generating test cases:', error);
-      throw error;
+      console.warn('⚠️  Falling back to built-in test generation.');
+      return this.generateFallbackTestCases(analysis);
     }
   }
 
@@ -229,8 +252,8 @@ Target site: ${analysis.baseUrl}. Sample pages: ${pages}.`;
           },
           {
             action: 'assert',
-            assertion: `page.url() === '${page.url}'`,
-            description: 'Verify correct page loaded',
+            assertion: `(function(){ try { const a = new URL(page.url()); const b = new URL('${page.url}'); return a.hostname.replace(/^www\./,'') === b.hostname.replace(/^www\./,'') && a.pathname === b.pathname; } catch(e){ return false; } })()`,
+            description: 'Verify correct page loaded (ignore www redirects)',
             timeout: 5000,
           }
         ],

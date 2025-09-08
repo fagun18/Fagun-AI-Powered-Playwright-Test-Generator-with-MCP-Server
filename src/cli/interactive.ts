@@ -111,7 +111,23 @@ export class InteractiveCLI {
   }
 
   private async getTestingPreferences(): Promise<any> {
-    // First ask if user wants all test types
+    // First ask for tester name
+    const { testerName } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'testerName',
+        message: 'Enter your name as tester:',
+        default: 'Fagun',
+        validate: (input: string) => {
+          if (!input || input.trim().length === 0) {
+            return 'Tester name is required';
+          }
+          return true;
+        }
+      }
+    ]);
+
+    // Then ask if user wants all test types
     const { selectAll } = await inquirer.prompt([
       {
         type: 'confirm',
@@ -317,9 +333,10 @@ export class InteractiveCLI {
     console.log(chalk.gray(`   Test Types: ${testTypes.length} selected`));
     console.log(chalk.gray(`   Max Tests: ${maxTests}`));
     console.log(chalk.gray(`   Execution Mode: ${executionMode}`));
+    console.log(chalk.gray(`   Tester: ${testerName}`));
     console.log(chalk.gray(`   Run Immediately: ${runTests ? 'Yes' : 'No'}`));
 
-    return { testTypes, maxTests, runTests };
+    return { testTypes, maxTests, runTests, testerName };
   }
 
   private async runTesting(targetUrl: string, apiKey: string, preferences: any): Promise<void> {
@@ -333,7 +350,14 @@ export class InteractiveCLI {
 
       // Generate test suite
       console.log(chalk.blue('📊 Analyzing website...'));
-      const testSuite = await testGenerator.generateTestSuite(targetUrl);
+      const configuration = {
+        testTypes: preferences.testTypes.length,
+        maxTests: preferences.maxTests,
+        executionMode: preferences.executionMode || 'balanced',
+        testerName: preferences.testerName || 'Fagun'
+      };
+      
+      const testSuite = await testGenerator.generateTestSuite(targetUrl, configuration);
 
       // Filter tests based on user preferences
       const filteredTests = testSuite.testCases.filter(test => 
@@ -342,7 +366,8 @@ export class InteractiveCLI {
 
       const filteredTestSuite = {
         ...testSuite,
-        testCases: filteredTests
+        testCases: filteredTests,
+        configuration
       };
 
       // Display test breakdown

@@ -54,7 +54,7 @@ export interface TestCase {
 }
 
 export interface TestStep {
-  action: 'click' | 'type' | 'select' | 'hover' | 'scroll' | 'wait' | 'assert' | 'navigate' | 'api-call' | 'screenshot' | 'drag' | 'drop' | 'keyboard' | 'mouse' | 'file-upload' | 'download' | 'clear' | 'focus' | 'blur' | 'double-click' | 'right-click' | 'swipe' | 'pinch' | 'rotate' | 'shake' | 'network-throttle' | 'emulate-device' | 'set-cookie' | 'clear-cookies' | 'local-storage' | 'session-storage' | 'geolocation' | 'permissions' | 'notification' | 'push' | 'pop' | 'back' | 'forward' | 'refresh' | 'reload' | 'close' | 'minimize' | 'maximize' | 'fullscreen' | 'exit-fullscreen';
+  action: 'click' | 'type' | 'select' | 'hover' | 'scroll' | 'wait' | 'assert' | 'navigate' | 'api-call' | 'screenshot' | 'drag' | 'drop' | 'keyboard' | 'mouse' | 'file-upload' | 'download' | 'clear' | 'focus' | 'blur' | 'double-click' | 'right-click' | 'swipe' | 'pinch' | 'rotate' | 'shake' | 'network-throttle' | 'emulate-device' | 'set-cookie' | 'clear-cookies' | 'local-storage' | 'session-storage' | 'geolocation' | 'permissions' | 'notification' | 'push' | 'pop' | 'back' | 'forward' | 'refresh' | 'reload' | 'close' | 'minimize' | 'maximize' | 'fullscreen' | 'exit-fullscreen' | 'ensure-visible' | 'evaluate';
   target?: string;
   value?: string;
   assertion?: string;
@@ -88,6 +88,7 @@ export interface TestStep {
   location?: { latitude: number; longitude: number; accuracy?: number };
   permissions?: string[];
   notification?: { title: string; body: string; icon?: string };
+  script?: any;
 }
 
 export interface TestResult {

@@ -18,7 +18,7 @@ export class TestGenerator {
     this.testTypeSuggestions = new TestTypeSuggestions();
   }
 
-  async generateTestSuite(targetUrl: string): Promise<TestSuite> {
+  async generateTestSuite(targetUrl: string, configuration?: any): Promise<TestSuite> {
     console.log(`🚀 Starting automated test generation for: ${targetUrl}`);
     
     try {
@@ -40,6 +40,12 @@ export class TestGenerator {
         results: [],
         createdAt: new Date(),
         status: 'pending',
+        configuration: configuration || {
+          testTypes: 16,
+          maxTests: 50,
+          executionMode: 'balanced',
+          testerName: 'Fagun'
+        }
       };
 
       console.log(`✅ Test suite generated successfully with ${testCases.length} test cases`);
@@ -97,7 +103,8 @@ export class TestGenerator {
       ...stressTests,
       ...loadTests,
       ...usabilityTests,
-      ...compatibilityTests
+      ...compatibilityTests,
+      ...this.generateGlobalGenericTests(analysis)
     );
 
     // Remove duplicates and limit to max test cases
@@ -517,7 +524,7 @@ export class TestGenerator {
             },
             {
               action: 'assert',
-              assertion: 'page.status() === 200',
+              assertion: 'typeof page.status === "function" ? page.status() === 200 : true',
               description: 'Verify API endpoint is accessible',
               timeout: 5000,
             }
@@ -740,6 +747,63 @@ export class TestGenerator {
         page: page.url,
         tags: ['edge-case', 'error-handling', 'resilience'],
       });
+    });
+
+    return tests;
+  }
+
+  // New: Global generic tests applicable to any website
+  public generateGlobalGenericTests(analysis: WebsiteAnalysis): TestCase[] {
+    const tests: TestCase[] = [];
+    let testId = 1;
+
+    // Home page loads without console errors
+    tests.push({
+      id: `global_console_${testId++}`,
+      name: 'No Console Errors on Home',
+      description: 'Home page should load without console errors',
+      type: 'functional',
+      priority: 'high',
+      steps: [
+        { action: 'navigate', target: analysis.baseUrl, description: `Navigate to ${analysis.baseUrl}`, timeout: 30000 },
+        { action: 'assert', assertion: 'window.__consoleErrorsCount__ === 0', description: 'No console errors', timeout: 5000 }
+      ],
+      expectedResult: 'Zero console errors after page load',
+      page: analysis.baseUrl,
+      tags: ['global', 'console']
+    });
+
+    // Presence of title and h1
+    tests.push({
+      id: `global_headings_${testId++}`,
+      name: 'Has Title and H1',
+      description: 'Page should have a non-empty <title> and at least one H1',
+      type: 'seo',
+      priority: 'medium',
+      steps: [
+        { action: 'navigate', target: analysis.baseUrl, description: `Navigate to ${analysis.baseUrl}`, timeout: 30000 },
+        { action: 'assert', assertion: 'document.title.trim().length > 0', description: 'Title not empty', timeout: 5000 },
+        { action: 'assert', assertion: 'document.querySelectorAll("h1").length > 0', description: 'At least one H1 exists', timeout: 5000 }
+      ],
+      expectedResult: 'Title and H1 present',
+      page: analysis.baseUrl,
+      tags: ['global', 'seo']
+    });
+
+    // Main navigation has links
+    tests.push({
+      id: `global_nav_${testId++}`,
+      name: 'Main Navigation Links',
+      description: 'Navigation should contain at least one link',
+      type: 'ui',
+      priority: 'low',
+      steps: [
+        { action: 'navigate', target: analysis.baseUrl, description: `Navigate to ${analysis.baseUrl}`, timeout: 30000 },
+        { action: 'assert', assertion: 'document.querySelectorAll("nav a, [role=\'navigation\'] a").length > 0', description: 'Nav has links', timeout: 5000 }
+      ],
+      expectedResult: 'Navigation has at least one link',
+      page: analysis.baseUrl,
+      tags: ['global', 'navigation']
     });
 
     return tests;

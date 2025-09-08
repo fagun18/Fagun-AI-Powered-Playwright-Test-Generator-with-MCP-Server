@@ -74,7 +74,80 @@ export class ComprehensiveTestGenerator {
     allTests.push(...securityTests);
     testId += securityTests.length;
 
+    // 9. Analysis-driven element-safe tests (visible links/buttons/images)
+    console.log('🧠 Generating analysis-driven element tests...');
+    const analysisDriven = this.generateAnalysisDrivenTests(analysis, testId);
+    allTests.push(...analysisDriven);
+    testId += analysisDriven.length;
+
     return allTests;
+  }
+
+  private generateAnalysisDrivenTests(analysis: WebsiteAnalysis, startId: number): TestCase[] {
+    const tests: TestCase[] = [];
+    let id = startId;
+
+    analysis.pages.slice(0, 10).forEach(p => {
+      const buttons = p.elements.filter(e => e.type === 'button').slice(0, 5);
+      buttons.forEach(btn => {
+        tests.push({
+          id: `analysis_click_${id++}`,
+          name: `Click Visible Button - ${btn.text || 'Button'}`,
+          description: `Ensure button is visible and clickable on ${p.url}`,
+          type: 'functional',
+          priority: 'medium',
+          steps: [
+            { action: 'navigate', target: p.url, description: `Navigate to ${p.url}`, timeout: 30000 },
+            { action: 'ensure-visible', target: btn.selector, description: 'Wait for button visible', timeout: 8000 },
+            { action: 'click', target: btn.selector, description: 'Click button', timeout: 5000 }
+          ],
+          expectedResult: 'Button can be clicked',
+          page: p.url,
+          element: btn as any,
+          tags: ['analysis', 'button']
+        });
+      });
+
+      const links = p.links.slice(0, 5).filter(l => !!l.selector && !!l.href);
+      links.forEach(link => {
+        tests.push({
+          id: `analysis_link_${id++}`,
+          name: `Open Link - ${link.text || link.href}`,
+          description: `Open link from ${p.url}`,
+          type: 'functional',
+          priority: 'low',
+          steps: [
+            { action: 'navigate', target: p.url, description: `Navigate to ${p.url}`, timeout: 30000 },
+            { action: 'ensure-visible', target: link.selector as string, description: 'Wait link visible', timeout: 8000 },
+            { action: 'click', target: link.selector as string, description: 'Click link', timeout: 5000 }
+          ],
+          expectedResult: 'Navigation occurs without errors',
+          page: p.url,
+          element: link as any,
+          tags: ['analysis', 'link']
+        });
+      });
+
+      p.images.slice(0, 5).forEach(img => {
+        tests.push({
+          id: `analysis_img_${id++}`,
+          name: `Image Alt Check`,
+          description: `Verify image has alt attribute on ${p.url}`,
+          type: 'accessibility',
+          priority: 'low',
+          steps: [
+            { action: 'navigate', target: p.url, description: `Navigate to ${p.url}`, timeout: 30000 },
+            { action: 'assert', assertion: `document.querySelector('${img.selector}')?.getAttribute('alt') !== null`, description: 'Alt present', timeout: 5000 }
+          ],
+          expectedResult: 'Image has alt attribute',
+          page: p.url,
+          element: img as any,
+          tags: ['analysis', 'image', 'a11y']
+        });
+      });
+    });
+
+    return tests;
   }
 
   private async generateGrammarTests(analysis: WebsiteAnalysis, page: Page | null, startId: number): Promise<TestCase[]> {

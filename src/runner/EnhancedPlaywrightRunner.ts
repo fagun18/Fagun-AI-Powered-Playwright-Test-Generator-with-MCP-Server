@@ -77,6 +77,16 @@ export class EnhancedPlaywrightRunner extends PlaywrightRunner {
   }
 
   private async setupEnhancedLogging(page: Page): Promise<void> {
+    // Initialize a counter in the page for console errors
+    await page.addInitScript(() => {
+      (window as any).__consoleErrorsCount__ = 0;
+      const origError = console.error.bind(console);
+      console.error = (...args: any[]) => {
+        try { (window as any).__consoleErrorsCount__++; } catch {}
+        origError(...args);
+      };
+    });
+
     // Capture console logs
     page.on('console', msg => {
       const type = msg.type();
@@ -262,7 +272,8 @@ export class EnhancedPlaywrightRunner extends PlaywrightRunner {
 
         case 'click':
           console.log(`[click] Clicking on ${step.target}`);
-          await page.click(step.target, { timeout: step.timeout || 5000 });
+          await page.waitForSelector(step.target, { state: 'visible', timeout: step.timeout || 5000 });
+          await page.locator(step.target).first().click({ timeout: step.timeout || 5000 });
           logs.push(`Clicked on ${step.target}`);
           break;
 
@@ -305,6 +316,18 @@ export class EnhancedPlaywrightRunner extends PlaywrightRunner {
           logs.push(`Waited ${step.timeout || 1000}ms`);
           break;
 
+        case 'ensure-visible':
+          console.log(`[ensure-visible] Waiting for ${step.target} to be visible`);
+          await page.waitForSelector(step.target, { state: 'visible', timeout: step.timeout || 5000 });
+          logs.push(`Element visible: ${step.target}`);
+          break;
+
+        case 'evaluate':
+          console.log(`[evaluate] Executing custom script`);
+          const evalResult = await page.evaluate(step.script);
+          logs.push(`Evaluate result: ${String(evalResult)}`);
+          break;
+
         case 'api-call':
           console.log(`[api] Making ${step.method} request to ${step.target}`);
           const response = await (page.request as any)[step.method.toLowerCase()](step.target, {
@@ -312,6 +335,14 @@ export class EnhancedPlaywrightRunner extends PlaywrightRunner {
             headers: step.headers
           });
           logs.push(`API call completed: ${response.status()} ${step.target}`);
+          try {
+            const status = response.status();
+            const headers = await response.headers();
+            await page.evaluate((data: { status: number, headers: Record<string, string> }) => {
+              (window as any).__lastResponseStatus = data.status;
+              (window as any).__lastResponseHeaders = data.headers;
+            }, { status, headers });
+          } catch {}
           break;
 
         case 'screenshot':
