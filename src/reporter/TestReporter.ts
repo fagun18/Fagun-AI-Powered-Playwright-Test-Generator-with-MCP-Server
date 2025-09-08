@@ -431,6 +431,13 @@ export class TestReporter {
             transition: all 0.3s ease;
             position: relative;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+
+        .test-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent-neon);
         }
 
         .test-item::before {
@@ -810,14 +817,21 @@ export class TestReporter {
             // Initialize particles
             createParticles();
             
-            const testHeaders = document.querySelectorAll('.test-header');
+            const testItems = document.querySelectorAll('.test-item');
             
-            testHeaders.forEach(header => {
-                header.addEventListener('click', function() {
-                    console.log('Test header clicked');
-                    const details = this.nextElementSibling;
+            testItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    // Don't expand if clicking on the status badge
+                    if (e.target.classList.contains('test-status')) {
+                        return;
+                    }
+                    
+                    console.log('Test item clicked');
+                    const header = this.querySelector('.test-header');
+                    const details = this.querySelector('.test-details');
                     const icon = this.querySelector('.toggle-icon');
                     
+                    console.log('Header element:', header);
                     console.log('Details element:', details);
                     console.log('Icon element:', icon);
                     

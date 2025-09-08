@@ -113,6 +113,12 @@ export interface TestSuite {
   createdAt: Date | string;
   status: 'pending' | 'running' | 'completed' | 'failed';
   analysis?: WebsiteAnalysis;
+  configuration?: {
+    testTypes: number;
+    maxTests: number;
+    executionMode: string;
+    testerName: string;
+  };
   suggestions?: Array<{
     type: string;
     name: string;

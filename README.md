@@ -36,7 +36,7 @@ An intelligent automation testing framework that automatically analyzes websites
 ```bash
 # Clone the repository
 git clone https://github.com/fagun18/Fagun-AI-Powered-Playwright-Test-Generator-with-MCP-Server.git
-cd fagun-automation
+cd Fagun-AI-Powered-Playwright-Test-Generator-with-MCP-Server
 
 # Install dependencies
 npm install
@@ -46,7 +46,13 @@ npx playwright install
 
 # Set up environment variables
 cp config.env.example config.env
-# Edit config.env and add your GEMINI_API_KEY
+# Edit config.env and add your GEMINI_API_KEY (and optionally GROQ_API_KEY)
+
+# Build the project
+npm run build
+
+# Run the Project (interactive CLI)
+node dist/main.js run
 ```
 
 #### Python Version
@@ -77,17 +83,14 @@ export GEMINI_API_KEY="your_api_key_here"
 ### TypeScript/JavaScript Version
 
 ```bash
-# Interactive mode (recommended for first-time users)
-npm run start
+# Build (only needed after source changes)
+npm run build
 
-# Quick test for a specific URL
-npm run start -- quick https://example.com
+# Run interactive CLI (recommended)
+node dist/main.js run
 
-# Advanced configuration mode
-npm run start -- interactive
-
-# Setup and install dependencies
-npm run start -- setup
+# Run comprehensive full suite
+node dist/main.js comprehensive
 ```
 
 ### MCP Server (Model Context Protocol)
