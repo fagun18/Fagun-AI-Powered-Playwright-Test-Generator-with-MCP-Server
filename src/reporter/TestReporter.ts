@@ -316,7 +316,7 @@ export class TestReporter {
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
-
+        
         .header p {
             font-size: 1.1em;
             margin: 8px 0;
@@ -433,7 +433,7 @@ export class TestReporter {
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
             cursor: pointer;
         }
-
+        
         .test-item:hover {
             transform: translateY(-2px);
             box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
@@ -458,7 +458,7 @@ export class TestReporter {
         .test-item:hover::before {
             opacity: 1;
         }
-
+        
         .test-item:hover {
             transform: translateY(-5px) scale(1.02);
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
@@ -494,21 +494,21 @@ export class TestReporter {
             border: 1px solid;
             transition: all 0.3s ease;
         }
-
+        
         .test-status.passed {
             background: linear-gradient(135deg, rgba(0, 255, 0, 0.2), rgba(0, 200, 0, 0.3));
             border-color: var(--success-neon);
             color: var(--success-neon);
             box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
         }
-
+        
         .test-status.failed {
             background: linear-gradient(135deg, rgba(255, 0, 64, 0.2), rgba(200, 0, 50, 0.3));
             border-color: var(--error-neon);
             color: var(--error-neon);
             box-shadow: 0 0 20px rgba(255, 0, 64, 0.3);
         }
-
+        
         .test-status.skipped {
             background: linear-gradient(135deg, rgba(255, 170, 0, 0.2), rgba(200, 140, 0, 0.3));
             border-color: var(--warning-neon);
@@ -535,10 +535,15 @@ export class TestReporter {
             border-top: 1px solid var(--glass-border);
             backdrop-filter: blur(10px);
             animation: expand 300ms ease;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
         }
         
         .test-details.show {
-            display: block;
+            display: block !important;
+            max-height: 2000px;
+            padding: 25px;
         }
 
         @keyframes expand {
@@ -755,12 +760,12 @@ export class TestReporter {
                             <div style="margin-bottom:15px; font-size: 1.1em;"><span style="display:inline-block;width:15px;height:15px;background:var(--success-neon);margin-right:12px;border-radius:50%; box-shadow: 0 0 10px var(--success-neon);"></span><strong>Passed:</strong> <span style="color: var(--success-neon);">${summary.passed}</span></div>
                             <div style="margin-bottom:15px; font-size: 1.1em;"><span style="display:inline-block;width:15px;height:15px;background:var(--error-neon);margin-right:12px;border-radius:50%; box-shadow: 0 0 10px var(--error-neon);"></span><strong>Failed:</strong> <span style="color: var(--error-neon);">${summary.failed}</span></div>
                             <div style="font-size: 1.1em;"><span style="display:inline-block;width:15px;height:15px;background:var(--warning-neon);margin-right:12px;border-radius:50%; box-shadow: 0 0 10px var(--warning-neon);"></span><strong>Skipped:</strong> <span style="color: var(--warning-neon);">${summary.skipped}</span></div>
-                        </div>
+        </div>
                     </div>
                 </div>
-            </div>
+        </div>
             
-            ${broken.length ? `
+        ${broken.length ? `
             <div class="test-section">
                 <h2>🔗 Broken Links Detected (${broken.length})</h2>
                 <div style="padding: 30px;">
@@ -770,12 +775,12 @@ export class TestReporter {
                         </ul>
                     </div>
                 </div>
-            </div>` : ''}
-            
+        </div>` : ''}
+        
             <div class="test-section">
-                <h2>🧪 Test Execution Results</h2>
+                <h2>🧪 Test Execution Results by Category</h2>
                 <div style="padding: 30px;">
-                    ${this.generateTestResultsHTML(testResults, testCases)}
+                    ${this.generateCategorizedTestResults(testResults, testCases)}
                 </div>
             </div>
         </div>
@@ -813,37 +818,53 @@ export class TestReporter {
             }
         }
         
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize particles
-            createParticles();
+        // Ultra-simple click handler using direct style manipulation
+        function toggleTestDetails(element) {
+            const details = element.querySelector('.test-details');
+            const icon = element.querySelector('.toggle-icon');
             
+            if (details) {
+                if (details.style.display === 'block') {
+                    details.style.display = 'none';
+                    if (icon) icon.style.transform = 'rotate(0deg)';
+                } else {
+                    details.style.display = 'block';
+                    if (icon) icon.style.transform = 'rotate(180deg)';
+                }
+            }
+        }
+
+        // Initialize click handlers
+        function initClickHandlers() {
+            // Method 1: Event delegation
+            document.addEventListener('click', function(e) {
+                const testItem = e.target.closest('.test-item');
+                if (testItem && !e.target.classList.contains('test-status')) {
+                    toggleTestDetails(testItem);
+                }
+            });
+            
+            // Method 2: Direct handlers for each test item
             const testItems = document.querySelectorAll('.test-item');
-            
-            testItems.forEach(item => {
+            testItems.forEach(function(item) {
                 item.addEventListener('click', function(e) {
-                    // Don't expand if clicking on the status badge
-                    if (e.target.classList.contains('test-status')) {
-                        return;
-                    }
-                    
-                    console.log('Test item clicked');
-                    const header = this.querySelector('.test-header');
-                    const details = this.querySelector('.test-details');
-                    const icon = this.querySelector('.toggle-icon');
-                    
-                    console.log('Header element:', header);
-                    console.log('Details element:', details);
-                    console.log('Icon element:', icon);
-                    
-                    if (details && details.classList.contains('show')) {
-                        details.classList.remove('show');
-                        if (icon) icon.classList.remove('rotated');
-                    } else if (details) {
-                        details.classList.add('show');
-                        if (icon) icon.classList.add('rotated');
+                    if (!e.target.classList.contains('test-status')) {
+                        toggleTestDetails(this);
                     }
                 });
             });
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                createParticles();
+                initClickHandlers();
+            });
+        } else {
+            createParticles();
+            initClickHandlers();
+        }
 
             // Chip filtering functionality
             const chips = document.querySelectorAll('.chip[data-filter]');
@@ -1019,6 +1040,90 @@ export class TestReporter {
         </div>
       `;
     }).join('');
+  }
+
+  private generateCategorizedTestResults(testResults: TestResult[], testCases: any[]): string {
+    // Group tests by category
+    const categories: Record<string, Array<{ result: TestResult; testCase: any }>> = {
+      '🔗 URL & Navigation': [],
+      '📄 Page Content': [],
+      '🔘 Interactive Elements': [],
+      '📝 Form Testing': [],
+      '🔍 Validation & Quality': [],
+      '⚡ Performance': [],
+      '🔒 Security': [],
+      '📱 Responsive Design': [],
+      '♿ Accessibility': [],
+      '🌐 Cross-Browser': [],
+      'Other': []
+    };
+
+    testResults.forEach(result => {
+      const testCase = testCases.find(tc => tc.id === result.testCaseId);
+      const testName = testCase?.name || result.testCaseId;
+      
+      // Categorize based on test name and type
+      if (testName.includes('URL') || testName.includes('Navigation') || testName.includes('Link')) {
+        categories['🔗 URL & Navigation'].push({ result, testCase });
+      } else if (testName.includes('Title') || testName.includes('Content') || testName.includes('Grammar')) {
+        categories['📄 Page Content'].push({ result, testCase });
+      } else if (testName.includes('Button') || testName.includes('Click') || testName.includes('Interactive')) {
+        categories['🔘 Interactive Elements'].push({ result, testCase });
+      } else if (testName.includes('Form') || testName.includes('Input') || testName.includes('Submit')) {
+        categories['📝 Form Testing'].push({ result, testCase });
+      } else if (testName.includes('Validation') || testName.includes('SEO') || testName.includes('Quality')) {
+        categories['🔍 Validation & Quality'].push({ result, testCase });
+      } else if (testName.includes('Performance') || testName.includes('Speed') || testName.includes('Load')) {
+        categories['⚡ Performance'].push({ result, testCase });
+      } else if (testName.includes('Security') || testName.includes('XSS') || testName.includes('CSRF')) {
+        categories['🔒 Security'].push({ result, testCase });
+      } else if (testName.includes('Mobile') || testName.includes('Responsive') || testName.includes('Device')) {
+        categories['📱 Responsive Design'].push({ result, testCase });
+      } else if (testName.includes('Accessibility') || testName.includes('A11y') || testName.includes('Screen Reader')) {
+        categories['♿ Accessibility'].push({ result, testCase });
+      } else if (testName.includes('Browser') || testName.includes('Cross-Browser') || testName.includes('Compatibility')) {
+        categories['🌐 Cross-Browser'].push({ result, testCase });
+      } else {
+        categories['Other'].push({ result, testCase });
+      }
+    });
+
+    // Generate HTML for each category
+    let html = '';
+    Object.entries(categories).forEach(([categoryName, tests]) => {
+      if (tests.length > 0) {
+        html += `
+          <div class="test-category" style="margin-bottom: 30px;">
+            <h3 style="color: var(--primary-neon); font-size: 1.3em; margin-bottom: 15px; padding: 10px; background: var(--glass-bg); border-radius: 10px; border: 1px solid var(--glass-border);">
+              ${categoryName} (${tests.length} tests)
+            </h3>
+            <div class="category-description" style="margin-bottom: 15px; padding: 10px; background: rgba(0,255,255,0.05); border-radius: 8px; border-left: 4px solid var(--primary-neon);">
+              ${this.getCategoryDescription(categoryName)}
+            </div>
+            ${tests.map(({ result, testCase }) => this.generateTestResultsHTML([result], [testCase])).join('')}
+          </div>
+        `;
+      }
+    });
+
+    return html;
+  }
+
+  private getCategoryDescription(categoryName: string): string {
+    const descriptions: Record<string, string> = {
+      '🔗 URL & Navigation': 'Tests URL structure, link functionality, and navigation flow. Ensures all links work correctly and URLs follow best practices.',
+      '📄 Page Content': 'Validates page titles, content quality, grammar, and text accuracy. Checks for proper content structure and readability.',
+      '🔘 Interactive Elements': 'Tests button clicks, interactive components, and user interface elements. Ensures all clickable elements respond correctly.',
+      '📝 Form Testing': 'Comprehensive form validation including input fields, submission, and error handling. Tests both valid and invalid data scenarios.',
+      '🔍 Validation & Quality': 'SEO compliance, content validation, and quality assurance checks. Ensures website meets industry standards.',
+      '⚡ Performance': 'Page load times, resource optimization, and performance metrics. Identifies bottlenecks and optimization opportunities.',
+      '🔒 Security': 'Security vulnerability checks, input sanitization, and protection against common web attacks.',
+      '📱 Responsive Design': 'Mobile and tablet compatibility, responsive layouts, and cross-device functionality.',
+      '♿ Accessibility': 'Screen reader compatibility, keyboard navigation, and WCAG compliance for inclusive user experience.',
+      '🌐 Cross-Browser': 'Compatibility across different browsers and browser versions to ensure consistent functionality.',
+      'Other': 'Additional test cases that don\'t fit into specific categories but are important for overall website quality.'
+    };
+    return descriptions[categoryName] || 'General test cases for website functionality and quality assurance.';
   }
 
   private generateFixSuggestions(testCase: any, result: TestResult): string {

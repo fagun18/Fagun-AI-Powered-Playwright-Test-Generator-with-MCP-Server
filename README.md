@@ -4,6 +4,12 @@
 
 An intelligent automation testing framework that automatically analyzes websites, generates comprehensive test cases using AI, and executes them with detailed reporting.
 
+## 🎥 Demo
+
+<video src="./Recording.mp4" controls autoplay muted loop playsinline style="width: 100%; max-width: 960px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); outline: none;">
+Your browser doesn't support embedded videos. Watch the recording here: <a href="./Recording.mp4">Recording.mp4</a>
+</video>
+
 ## ✨ Features
 
 - **🤖 AI-Powered Test Generation**: Uses Google's Gemini AI to automatically generate comprehensive test cases

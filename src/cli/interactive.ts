@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { TestGenerator } from '../generator/TestGenerator';
-import { PlaywrightRunner } from '../runner/PlaywrightRunner';
+import { EnhancedPlaywrightRunner } from '../runner/EnhancedPlaywrightRunner';
 import { TestReporter } from '../reporter/TestReporter';
 import { TestTemplates } from '../templates/TestTemplates';
 import { TestDataManager } from '../data/TestDataManager';
@@ -40,14 +40,17 @@ export class InteractiveCLI {
 
       console.log(chalk.green(`\n✅ Target website: ${targetUrl}\n`));
 
-      // Step 2: Check and validate API key
-      const apiKey = await this.validateApiKey();
+      // Normalize URL
+      const normalizedUrl = this.normalizeUrl(targetUrl);
+
+      // Step 2: Check and validate API keys
+      const apiKeys = await this.validateApiKey();
 
       // Step 3: Get testing preferences
       const preferences = await this.getTestingPreferences();
 
       // Step 4: Run the testing
-      await this.runTesting(targetUrl, apiKey, preferences);
+      await this.runTesting(normalizedUrl, apiKeys, preferences);
 
     } catch (error) {
       console.error(chalk.red('\n❌ Error:'), (error as Error).message);
@@ -55,20 +58,35 @@ export class InteractiveCLI {
     }
   }
 
-  private async validateApiKey(): Promise<string> {
-    // Check if config.env exists and has API key
+  private async validateApiKey(): Promise<{ geminiKey: string; groqKey: string }> {
+    // Check if config.env exists and has API keys
     let config = {};
     if (await fs.pathExists(this.configPath)) {
       const configContent = await fs.readFile(this.configPath, 'utf8');
       config = this.parseConfig(configContent);
     }
 
-    let apiKey = (config as any)['GEMINI_API_KEY'] || process.env.GEMINI_API_KEY;
+    let geminiKey = (config as any)['GEMINI_API_KEY'] || process.env.GEMINI_API_KEY;
+    let groqKey = (config as any)['GROQ_API_KEY'] || process.env.GROQ_API_KEY;
 
-    if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-      console.log(chalk.yellow('\n🔑 Gemini API Key Required'));
-      console.log(chalk.gray('To use AI-powered test generation, you need a valid Gemini API key.'));
-      console.log(chalk.gray('Get your API key from: https://makersuite.google.com/app/apikey\n'));
+    const hasValidGemini = geminiKey && geminiKey !== 'your_gemini_api_key_here';
+    const hasValidGroq = groqKey && groqKey !== 'your_groq_api_key_here';
+
+    // Show status of existing keys
+    if (hasValidGemini) {
+      console.log(chalk.green('✅ Using existing Gemini API key from config.env'));
+    }
+    if (hasValidGroq) {
+      console.log(chalk.green('✅ Using existing Groq API key from config.env'));
+    }
+
+    // If neither key is valid, ask user to set up AI
+    if (!hasValidGemini && !hasValidGroq) {
+      console.log(chalk.yellow('\n🔑 AI API Key Required'));
+      console.log(chalk.gray('To use AI-powered test generation, you need a valid API key.'));
+      console.log(chalk.gray('Choose between Gemini or Groq:'));
+      console.log(chalk.gray('• Gemini: https://makersuite.google.com/app/apikey'));
+      console.log(chalk.gray('• Groq: https://console.groq.com/keys\n'));
 
       const { useAI } = await inquirer.prompt([
         {
@@ -80,6 +98,104 @@ export class InteractiveCLI {
       ]);
 
       if (useAI) {
+        const { aiProvider } = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'aiProvider',
+            message: 'Choose AI provider:',
+            choices: [
+              { name: 'Gemini (Google)', value: 'gemini' },
+              { name: 'Groq (Fast Inference)', value: 'groq' }
+            ],
+            default: 'groq'
+          }
+        ]);
+
+        if (aiProvider === 'gemini') {
+          const { apiKeyInput } = await inquirer.prompt([
+            {
+              type: 'password',
+              name: 'apiKeyInput',
+              message: 'Enter your Gemini API key:',
+              mask: '*',
+              validate: (input: string) => {
+                if (!input || input.trim().length === 0) {
+                  return 'API key is required';
+                }
+                return true;
+              }
+            }
+          ]);
+
+          geminiKey = apiKeyInput.trim();
+          await this.saveApiKey(geminiKey, 'GEMINI_API_KEY');
+          console.log(chalk.green('✅ Gemini API key saved to config.env\n'));
+        } else {
+          const { apiKeyInput } = await inquirer.prompt([
+            {
+              type: 'password',
+              name: 'apiKeyInput',
+              message: 'Enter your Groq API key:',
+              mask: '*',
+              validate: (input: string) => {
+                if (!input || input.trim().length === 0) {
+                  return 'API key is required';
+                }
+                return true;
+              }
+            }
+          ]);
+
+          groqKey = apiKeyInput.trim();
+          await this.saveApiKey(groqKey, 'GROQ_API_KEY');
+          console.log(chalk.green('✅ Groq API key saved to config.env\n'));
+        }
+      } else {
+        console.log(chalk.yellow('⚠️  Proceeding with built-in test generation (no AI)\n'));
+      }
+    } else if (!hasValidGroq && hasValidGemini) {
+      // Only Groq is missing
+      const { addGroq } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'addGroq',
+          message: 'Would you like to add Groq API key for faster AI inference?',
+          default: true
+        }
+      ]);
+
+      if (addGroq) {
+        const { apiKeyInput } = await inquirer.prompt([
+          {
+            type: 'password',
+            name: 'apiKeyInput',
+            message: 'Enter your Groq API key:',
+            mask: '*',
+            validate: (input: string) => {
+              if (!input || input.trim().length === 0) {
+                return 'API key is required';
+              }
+              return true;
+            }
+          }
+        ]);
+
+        groqKey = apiKeyInput.trim();
+        await this.saveApiKey(groqKey, 'GROQ_API_KEY');
+        console.log(chalk.green('✅ Groq API key saved to config.env\n'));
+      }
+    } else if (!hasValidGemini && hasValidGroq) {
+      // Only Gemini is missing
+      const { addGemini } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'addGemini',
+          message: 'Would you like to add Gemini API key as backup?',
+          default: false
+        }
+      ]);
+
+      if (addGemini) {
         const { apiKeyInput } = await inquirer.prompt([
           {
             type: 'password',
@@ -95,19 +211,13 @@ export class InteractiveCLI {
           }
         ]);
 
-        apiKey = apiKeyInput.trim();
-
-        // Save API key to config.env
-        await this.saveApiKey(apiKey);
-        console.log(chalk.green('✅ API key saved to config.env\n'));
-      } else {
-        console.log(chalk.yellow('⚠️  Proceeding with built-in test generation (no AI)\n'));
+        geminiKey = apiKeyInput.trim();
+        await this.saveApiKey(geminiKey, 'GEMINI_API_KEY');
+        console.log(chalk.green('✅ Gemini API key saved to config.env\n'));
       }
-    } else {
-      console.log(chalk.green('✅ Using existing API key from config.env\n'));
     }
 
-    return apiKey;
+    return { geminiKey: geminiKey || '', groqKey: groqKey || '' };
   }
 
   private async getTestingPreferences(): Promise<any> {
@@ -339,13 +449,13 @@ export class InteractiveCLI {
     return { testTypes, maxTests, runTests, testerName };
   }
 
-  private async runTesting(targetUrl: string, apiKey: string, preferences: any): Promise<void> {
+  private async runTesting(targetUrl: string, apiKeys: { geminiKey: string; groqKey: string }, preferences: any): Promise<void> {
     console.log(chalk.blue('\n🚀 Starting test generation and execution...\n'));
 
     try {
       // Initialize components
       const testGenerator = new TestGenerator();
-      const testRunner = new PlaywrightRunner();
+      const testRunner = new EnhancedPlaywrightRunner();
       const reporter = new TestReporter();
 
       // Generate test suite
@@ -357,7 +467,7 @@ export class InteractiveCLI {
         testerName: preferences.testerName || 'Fagun'
       };
       
-      const testSuite = await testGenerator.generateTestSuite(targetUrl, configuration);
+      const testSuite = await testGenerator.generateTestSuite(targetUrl, configuration, apiKeys);
 
       // Filter tests based on user preferences
       const filteredTests = testSuite.testCases.filter(test => 
@@ -418,7 +528,7 @@ export class InteractiveCLI {
     }
   }
 
-  private async saveApiKey(apiKey: string): Promise<void> {
+  private async saveApiKey(apiKey: string, keyType: string = 'GEMINI_API_KEY'): Promise<void> {
     let configContent = '';
     if (await fs.pathExists(this.configPath)) {
       configContent = await fs.readFile(this.configPath, 'utf8');
@@ -427,13 +537,13 @@ export class InteractiveCLI {
     }
 
     // Update or add API key
-    if (configContent.includes('GEMINI_API_KEY=')) {
+    if (configContent.includes(`${keyType}=`)) {
       configContent = configContent.replace(
-        /GEMINI_API_KEY=.*/,
-        `GEMINI_API_KEY=${apiKey}`
+        new RegExp(`${keyType}=.*`),
+        `${keyType}=${apiKey}`
       );
     } else {
-      configContent += `\nGEMINI_API_KEY=${apiKey}\n`;
+      configContent += `\n${keyType}=${apiKey}\n`;
     }
 
     await fs.writeFile(this.configPath, configContent);
@@ -448,5 +558,16 @@ export class InteractiveCLI {
       }
     });
     return config;
+  }
+
+  private normalizeUrl(input: string): string {
+    const trimmed = (input || '').trim();
+    if (!trimmed) return '';
+    // If it already parses as URL, return as is
+    try { new URL(trimmed); return trimmed; } catch {}
+    // Prepend https:// if missing scheme
+    const candidate = `https://${trimmed.replace(/^https?:\/\//i, '')}`;
+    try { new URL(candidate); return candidate; } catch {}
+    return trimmed;
   }
 }

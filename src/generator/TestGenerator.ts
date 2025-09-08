@@ -1,24 +1,33 @@
 import { WebsiteAnalysis, TestCase, TestSuite } from '../types';
 import { GeminiService } from '../ai/GeminiService';
+import { GroqService } from '../ai/GroqService';
 import { WebsiteAnalyzer } from '../analyzer/WebsiteAnalyzer';
 import { ComprehensiveTestGenerator } from './ComprehensiveTestGenerator';
+import { IntelligentTestGenerator } from './IntelligentTestGenerator';
+import { EnhancedPageAnalyzer } from '../analyzer/EnhancedPageAnalyzer';
 import { TestTypeSuggestions } from '../analyzer/TestTypeSuggestions';
 import config from '../config';
 
 export class TestGenerator {
   private geminiService: GeminiService;
+  private groqService: GroqService;
   private websiteAnalyzer: WebsiteAnalyzer;
   private comprehensiveGenerator: ComprehensiveTestGenerator;
+  private intelligentGenerator: IntelligentTestGenerator;
+  private enhancedPageAnalyzer: EnhancedPageAnalyzer;
   private testTypeSuggestions: TestTypeSuggestions;
 
   constructor() {
     this.geminiService = new GeminiService();
+    this.groqService = new GroqService();
     this.websiteAnalyzer = new WebsiteAnalyzer();
     this.comprehensiveGenerator = new ComprehensiveTestGenerator();
+    this.intelligentGenerator = new IntelligentTestGenerator();
+    this.enhancedPageAnalyzer = new EnhancedPageAnalyzer();
     this.testTypeSuggestions = new TestTypeSuggestions();
   }
 
-  async generateTestSuite(targetUrl: string, configuration?: any): Promise<TestSuite> {
+  async generateTestSuite(targetUrl: string, configuration?: any, apiKeys?: { geminiKey: string; groqKey: string }): Promise<TestSuite> {
     console.log(`🚀 Starting automated test generation for: ${targetUrl}`);
     
     try {
@@ -28,7 +37,7 @@ export class TestGenerator {
       
       // Step 2: Generate test cases using AI
       console.log('🤖 Step 2: Generating test cases with AI...');
-      const testCases = await this.generateComprehensiveTestCases(analysis);
+      const testCases = await this.generateComprehensiveTestCases(analysis, apiKeys);
       
       // Step 3: Create test suite
       const testSuite: TestSuite = {
@@ -57,11 +66,49 @@ export class TestGenerator {
     }
   }
 
-  private async generateComprehensiveTestCases(analysis: WebsiteAnalysis): Promise<TestCase[]> {
+  private async generateComprehensiveTestCases(analysis: WebsiteAnalysis, apiKeys?: { geminiKey: string; groqKey: string }): Promise<TestCase[]> {
     const allTestCases: TestCase[] = [];
 
-    // Generate AI-powered test cases
-    const aiTestCases = await this.geminiService.generateTestCases(analysis);
+    // Step 1: Enhanced page analysis for intelligent test generation
+    console.log('🔍 Step 1: Performing enhanced page analysis...');
+    const pageAnalyses = await this.enhancedPageAnalyzer.analyzeAllPages(analysis.baseUrl);
+    
+    // Step 2: Generate intelligent tests based on page analysis
+    console.log('🧠 Step 2: Generating intelligent test cases...');
+    const intelligentTests = this.intelligentGenerator.generateComprehensiveTests(pageAnalyses);
+    allTestCases.push(...intelligentTests);
+
+    // Step 3: Generate AI-powered test cases
+    let aiTestCases: TestCase[] = [];
+    
+    // Try Groq first (faster), then Gemini as fallback
+    if (apiKeys?.groqKey && apiKeys.groqKey !== 'your_groq_api_key_here') {
+      try {
+        console.log('🤖 Step 3: Generating additional test cases using Groq AI...');
+        this.groqService = new GroqService(apiKeys.groqKey);
+        aiTestCases = await this.groqService.generateTestCases(analysis, ['functional', 'ui', 'accessibility', 'performance', 'security']);
+      } catch (error) {
+        console.log('⚠️  Groq failed, trying Gemini...');
+      }
+    }
+    
+    if (aiTestCases.length === 0 && apiKeys?.geminiKey && apiKeys.geminiKey !== 'your_gemini_api_key_here') {
+      try {
+        console.log('🤖 Step 3: Generating additional test cases using Gemini AI...');
+        // Set the API key in environment for GeminiService
+        process.env.GEMINI_API_KEY = apiKeys.geminiKey;
+        this.geminiService = new GeminiService();
+        aiTestCases = await this.geminiService.generateTestCases(analysis);
+      } catch (error) {
+        console.log('⚠️  Gemini failed, using fallback tests...');
+      }
+    }
+    
+    if (aiTestCases.length === 0) {
+      console.log('🔄 Step 3: Using built-in test generation...');
+      aiTestCases = this.generateBuiltInTestCases(analysis);
+    }
+    
     // Limit steps per test for speed
     const limitedAi = aiTestCases.map(tc => ({
       ...tc,
@@ -168,6 +215,129 @@ export class TestGenerator {
 
   getImplementationGuide(testType: string): string {
     return this.testTypeSuggestions.getImplementationGuide(testType);
+  }
+
+  private generateBuiltInTestCases(analysis: WebsiteAnalysis): TestCase[] {
+    const fallbackTests: TestCase[] = [];
+    const baseUrl = analysis.baseUrl;
+    const pages = analysis.pages || [];
+    const forms = analysis.forms || [];
+
+    // Navigation tests
+    pages.slice(0, 3).forEach((page: any, index: number) => {
+      fallbackTests.push({
+        id: `builtin_nav_${index + 1}`,
+        name: `🌐 Navigate to ${page.title || 'Page'}`,
+        description: `Test navigation to ${page.url}`,
+        type: 'functional',
+        priority: 'high',
+        steps: [
+          {
+            action: 'navigate',
+            target: page.url,
+            description: `Navigate to ${page.url}`
+          },
+          {
+            action: 'assert',
+            target: 'title',
+            assertion: 'contains',
+            value: page.title || '',
+            description: 'Verify page title is correct'
+          }
+        ],
+        expectedResult: 'Page loads successfully with correct title',
+        page: page.url
+      });
+    });
+
+    // Form tests
+    forms.slice(0, 2).forEach((form: any, index: number) => {
+      fallbackTests.push({
+        id: `builtin_form_${index + 1}`,
+        name: `📝 Form Submission Test`,
+        description: `Test form submission on ${form.action || 'current page'}`,
+        type: 'functional',
+        priority: 'medium',
+        steps: [
+          {
+            action: 'click',
+            target: 'form:nth-of-type(1)',
+            description: 'Click on form'
+          },
+          {
+            action: 'wait',
+            timeout: 2000,
+            description: 'Wait for form to load'
+          }
+        ],
+        expectedResult: 'Form submission works correctly',
+        page: baseUrl
+      });
+    });
+
+    // Button tests
+    for (let i = 1; i <= 3; i++) {
+      fallbackTests.push({
+        id: `builtin_button_${i}`,
+        name: `🔘 Test Button: Unnamed Button`,
+        description: `Test button clickability`,
+        type: 'functional',
+        priority: 'medium',
+        steps: [
+          {
+            action: 'click',
+            target: `button:nth-of-type(${i}), input[type="button"]:nth-of-type(${i}), input[type="submit"]:nth-of-type(${i}), input[type="reset"]:nth-of-type(${i})`,
+            description: `Click on button ${i}`
+          }
+        ],
+        expectedResult: 'Button click works without errors',
+        page: baseUrl
+      });
+    }
+
+    // Link tests
+    for (let i = 120; i <= 125; i++) {
+      fallbackTests.push({
+        id: `builtin_link_${i}`,
+        name: `🔗 ${baseUrl} Navigation Test`,
+        description: `Test link navigation`,
+        type: 'functional',
+        priority: 'low',
+        steps: [
+          {
+            action: 'click',
+            target: `a:nth-of-type(${i})`,
+            description: `Click on link ${i}`
+          }
+        ],
+        expectedResult: 'Link navigation works correctly',
+        page: baseUrl
+      });
+    }
+
+    // UI tests
+    const uiElements = ['button', 'input', 'textarea', 'form'];
+    uiElements.forEach((element, index) => {
+      fallbackTests.push({
+        id: `builtin_ui_${index + 1}`,
+        name: `Element Visibility Test - ${element}`,
+        description: `Test ${element} element visibility`,
+        type: 'ui',
+        priority: 'medium',
+        steps: [
+          {
+            action: 'assert',
+            target: `${element}:nth-of-type(1)`,
+            assertion: 'isVisible',
+            description: `Verify ${element} is visible`
+          }
+        ],
+        expectedResult: `${element} element is visible`,
+        page: baseUrl
+      });
+    });
+
+    return fallbackTests.slice(0, 25); // Limit to 25 tests
   }
 
   public generateFunctionalTests(analysis: WebsiteAnalysis): TestCase[] {
@@ -799,11 +969,124 @@ export class TestGenerator {
       priority: 'low',
       steps: [
         { action: 'navigate', target: analysis.baseUrl, description: `Navigate to ${analysis.baseUrl}`, timeout: 30000 },
-        { action: 'assert', assertion: 'document.querySelectorAll("nav a, [role=\'navigation\'] a").length > 0', description: 'Nav has links', timeout: 5000 }
+        { action: 'assert', assertion: `document.querySelectorAll("nav a, [role='navigation'] a").length > 0`, description: 'Nav has links', timeout: 5000 }
       ],
       expectedResult: 'Navigation has at least one link',
       page: analysis.baseUrl,
       tags: ['global', 'navigation']
+    });
+
+    // Favicon present
+    tests.push({
+      id: `global_favicon_${testId++}`,
+      name: 'Favicon Present',
+      description: 'Page should have a favicon link',
+      type: 'seo',
+      priority: 'low',
+      steps: [
+        { action: 'navigate', target: analysis.baseUrl, description: `Navigate to ${analysis.baseUrl}`, timeout: 30000 },
+        { action: 'assert', assertion: 'document.querySelector("link[rel~=icon]") !== null', description: 'Favicon link exists', timeout: 5000 }
+      ],
+      expectedResult: 'Favicon is configured',
+      page: analysis.baseUrl,
+      tags: ['global', 'seo']
+    });
+
+    // Meta description present
+    tests.push({
+      id: `global_meta_desc_${testId++}`,
+      name: 'Meta Description Present',
+      description: 'Page should have a non-empty meta description',
+      type: 'seo',
+      priority: 'medium',
+      steps: [
+        { action: 'navigate', target: analysis.baseUrl, description: `Navigate to ${analysis.baseUrl}`, timeout: 30000 },
+        { action: 'assert', assertion: `!!(document.querySelector("meta[name='description']") && (document.querySelector("meta[name='description']") as any).content.trim().length > 0)`, description: 'Description meta exists and non-empty', timeout: 5000 }
+      ],
+      expectedResult: 'Meta description exists and is non-empty',
+      page: analysis.baseUrl,
+      tags: ['global', 'seo']
+    });
+
+    // Viewport meta for mobile
+    tests.push({
+      id: `global_meta_viewport_${testId++}`,
+      name: 'Viewport Meta Present',
+      description: 'Page should include a viewport meta tag for responsive design',
+      type: 'mobile',
+      priority: 'low',
+      steps: [
+        { action: 'navigate', target: analysis.baseUrl, description: `Navigate to ${analysis.baseUrl}`, timeout: 30000 },
+        { action: 'assert', assertion: `document.querySelector("meta[name='viewport']") !== null`, description: 'Viewport meta exists', timeout: 5000 }
+      ],
+      expectedResult: 'Viewport meta is present',
+      page: analysis.baseUrl,
+      tags: ['global', 'responsive']
+    });
+
+    // Language attribute present on <html>
+    tests.push({
+      id: `global_lang_${testId++}`,
+      name: 'HTML lang Attribute Present',
+      description: 'Root HTML element should declare a language',
+      type: 'accessibility',
+      priority: 'low',
+      steps: [
+        { action: 'navigate', target: analysis.baseUrl, description: `Navigate to ${analysis.baseUrl}`, timeout: 30000 },
+        { action: 'assert', assertion: '!!document.documentElement.getAttribute("lang") && document.documentElement.getAttribute("lang").trim().length > 0', description: 'lang attribute exists and non-empty', timeout: 5000 }
+      ],
+      expectedResult: '<html> has a non-empty lang attribute',
+      page: analysis.baseUrl,
+      tags: ['global', 'a11y']
+    });
+
+    // There is at least one anchor link on the page
+    tests.push({
+      id: `global_links_${testId++}`,
+      name: 'Has At Least One Link',
+      description: 'Page should contain anchor links',
+      type: 'functional',
+      priority: 'low',
+      steps: [
+        { action: 'navigate', target: analysis.baseUrl, description: `Navigate to ${analysis.baseUrl}`, timeout: 30000 },
+        { action: 'assert', assertion: 'document.querySelectorAll("a").length > 0', description: 'At least one link exists', timeout: 5000 }
+      ],
+      expectedResult: 'Links are present on the page',
+      page: analysis.baseUrl,
+      tags: ['global']
+    });
+
+    // No obviously broken images (zero-width/height or not complete)
+    tests.push({
+      id: `global_images_${testId++}`,
+      name: 'No Broken Images',
+      description: 'Images should be loaded without errors',
+      type: 'ui',
+      priority: 'low',
+      steps: [
+        { action: 'navigate', target: analysis.baseUrl, description: `Navigate to ${analysis.baseUrl}`, timeout: 30000 },
+        { action: 'assert', assertion: 'Array.from(document.images).filter(img => !(img as any).complete || (img as any).naturalWidth === 0).length === 0', description: 'No broken images', timeout: 5000 }
+      ],
+      expectedResult: 'All images load correctly',
+      page: analysis.baseUrl,
+      tags: ['global', 'ui']
+    });
+
+    // Basic scroll works
+    tests.push({
+      id: `global_scroll_${testId++}`,
+      name: 'Page Scroll Works',
+      description: 'User should be able to scroll the page',
+      type: 'usability',
+      priority: 'low',
+      steps: [
+        { action: 'navigate', target: analysis.baseUrl, description: `Navigate to ${analysis.baseUrl}`, timeout: 30000 },
+        { action: 'scroll', description: 'Scroll to bottom' },
+        { action: 'assert', assertion: 'window.scrollY > 0', description: 'Scrolled vertically', timeout: 5000 }
+      ],
+      expectedResult: 'Page scrolls as expected',
+      page: analysis.baseUrl,
+      tags: ['global', 'usability']
     });
 
     return tests;

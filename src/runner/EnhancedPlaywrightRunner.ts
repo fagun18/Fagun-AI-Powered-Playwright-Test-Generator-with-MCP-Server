@@ -14,6 +14,10 @@ export class EnhancedPlaywrightRunner extends PlaywrightRunner {
   private seoTester: SEOTester;
   private buttonFormTester: ButtonFormTester;
   private urlTester: URLTester;
+  private consoleErrorsCount: number = 0;
+  private failedRequests: Array<{ url: string; error: string }> = [];
+  private pageErrors: string[] = [];
+  private skipAllDueToNetwork: boolean = false;
 
   constructor() {
     super();
@@ -44,7 +48,7 @@ export class EnhancedPlaywrightRunner extends PlaywrightRunner {
       page = await context.newPage();
 
       // Set up enhanced logging
-      await this.setupEnhancedLogging(page);
+      this.setupEnhancedLogging(page);
 
       // Run comprehensive analysis first
       console.log('🔍 Running comprehensive website analysis...');
@@ -55,8 +59,22 @@ export class EnhancedPlaywrightRunner extends PlaywrightRunner {
         const testCase = testSuite.testCases[i];
         console.log(`🔍 Running test: ${testCase.name} (${testCase.type})`);
         
-        const result = await this.runEnhancedTest(page, testCase, i + 1);
-        results.push(result);
+        if (this.skipAllDueToNetwork) {
+          const skipped: TestResult = {
+            testCaseId: testCase.id,
+            status: 'skipped',
+            duration: 0,
+            timestamp: new Date(),
+            logs: [
+              `Skipped due to network error reaching site: ${testSuite.website}`,
+              'Root cause: initial connectivity check or navigation timed out (net::ERR_CONNECTION_TIMED_OUT)'
+            ]
+          };
+          results.push(skipped);
+        } else {
+          const result = await this.runEnhancedTest(page, testCase, i + 1);
+          results.push(result);
+        }
         
         // Log progress
         const progress = Math.round(((i + 1) / testSuite.testCases.length) * 100);
@@ -76,59 +94,51 @@ export class EnhancedPlaywrightRunner extends PlaywrightRunner {
     return results;
   }
 
-  private async setupEnhancedLogging(page: Page): Promise<void> {
-    // Initialize a counter in the page for console errors
-    await page.addInitScript(() => {
-      (window as any).__consoleErrorsCount__ = 0;
-      const origError = console.error.bind(console);
-      console.error = (...args: any[]) => {
-        try { (window as any).__consoleErrorsCount__++; } catch {}
-        origError(...args);
-      };
-    });
-
-    // Capture console logs
+  private setupEnhancedLogging(page: Page): void {
     page.on('console', msg => {
       const type = msg.type();
       const text = msg.text();
-      
-      if (type === 'log' || type === 'info') {
-        console.log(`[log] ${text}`);
-      } else if (type === 'warning') {
-        console.warn(`[warn] ${text}`);
-      } else if (type === 'error') {
-        console.error(`[error] ${text}`);
+      if (type === 'error') {
+        this.consoleErrorsCount += 1;
       }
+      console.log(`[console:${type}] ${text}`);
     });
 
-    // Capture network requests
-    page.on('request', request => {
-      console.log(`[request] ${request.method()} ${request.url()}`);
-    });
-
-    // Capture network responses
-    page.on('response', response => {
-      const status = response.status();
-      const url = response.url();
-      const statusText = status >= 400 ? '❌' : status >= 300 ? '🔄' : '✅';
-      console.log(`[response] ${statusText} ${status} ${url}`);
-    });
-
-    // Capture page errors
     page.on('pageerror', error => {
-      console.error(`[page error] ${error.message}`);
+      const message = (error as any)?.message || String(error);
+      this.pageErrors.push(message);
+      console.error(`[pageerror] ${message}`);
     });
 
-    // Capture unhandled rejections
     page.on('requestfailed', request => {
-      console.error(`[request failed] ${request.url()} - ${request.failure()?.errorText}`);
+      const entry = { url: request.url(), error: request.failure()?.errorText || 'unknown' };
+      this.failedRequests.push(entry);
+      console.error(`[request failed] ${entry.url} - ${entry.error}`);
     });
+
+    // Expose counters in window for simple assertions
+    page.exposeFunction && page.exposeFunction('__getDiagnostics', () => ({
+      consoleErrors: this.consoleErrorsCount,
+      failedRequests: this.failedRequests,
+      pageErrors: this.pageErrors
+    })).catch(() => {});
   }
 
   private async runComprehensiveAnalysis(page: Page, website: string): Promise<void> {
     try {
-      // Navigate to the website
+      // Connectivity pre-check
       console.log(`Executing: Navigate to ${website}`);
+      try {
+        const precheck = await page.request.get(website, { timeout: 10000 });
+        if (!precheck.ok()) {
+          console.error(`❌ Connectivity pre-check failed: HTTP ${precheck.status()} for ${website}`);
+        }
+      } catch (e) {
+        this.skipAllDueToNetwork = true;
+        console.error(`❌ Connectivity pre-check error: ${(e as Error).message}`);
+        return;
+      }
+
       await page.goto(website, { waitUntil: 'networkidle', timeout: 30000 });
       console.log(`✅ Step completed: Navigate to ${website}`);
 
@@ -188,6 +198,11 @@ export class EnhancedPlaywrightRunner extends PlaywrightRunner {
 
     } catch (error) {
       console.error('❌ Comprehensive analysis failed:', error);
+      // Mark to skip subsequent tests if the root cause is network/timeout
+      const msg = (error as Error)?.message || '';
+      if (/net::ERR|timed out|Timeout/i.test(msg)) {
+        this.skipAllDueToNetwork = true;
+      }
     }
   }
 
@@ -266,7 +281,15 @@ export class EnhancedPlaywrightRunner extends PlaywrightRunner {
       switch (step.action) {
         case 'navigate':
           console.log(`[navigate] Going to ${step.target}`);
-          await page.goto(step.target, { waitUntil: 'networkidle', timeout: step.timeout || 30000 });
+          try {
+            await page.goto(step.target, { waitUntil: 'networkidle', timeout: step.timeout || 30000 });
+          } catch (navErr) {
+            const msg = (navErr as Error).message || String(navErr);
+            if (/net::ERR|timed out|Timeout/i.test(msg)) {
+              return { success: false, error: `Navigation timeout/network error. Suggestion: Verify the site URL is reachable from this machine, check VPN/proxy/DNS, or try again later. Underlying error: ${msg}` };
+            }
+            throw navErr;
+          }
           logs.push(`Navigated to ${step.target}`);
           break;
 
