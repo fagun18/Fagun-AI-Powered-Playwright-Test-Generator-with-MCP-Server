@@ -2,7 +2,7 @@
 
 
 Automated browser testing and UI verification using BrowserUse and Gemini LLM.
-This project allows testing of login flows, post-login UI interactions, and other functional and security test cases with screenshot capture for every page.
+This project allows testing of login flows, post-login UI interactions, and other functional and security test cases.
 
 Features:
 
