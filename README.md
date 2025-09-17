@@ -1,6 +1,4 @@
-Fagun Automated Testing Agent
-
-🤖 **Intelligent Automated Browser Testing Agent** powered by BrowserUse and Google Gemini LLM.
+🤖 **Fagun Automated Testing Agent** powered by BrowserUse and Google Gemini LLM.
 
 This project provides comprehensive automated testing capabilities for web applications, including functional testing, security testing, and UI interaction verification with an interactive user interface.
 
@@ -39,8 +37,8 @@ This project provides comprehensive automated testing capabilities for web appli
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/somadey201/BrowserUse-Automated-Testing-Agent.git
-cd BrowserUse-Automated-Testing-Agent
+git clone https://github.com/fagun18/Fagun-AI-Powered-Playwright-Test-Generator-with-MCP-Server
+cd Fagun-AI-Powered-Playwright-Test-Generator-with-MCP-Server
 ```
 
 ### 2. Create Virtual Environment
