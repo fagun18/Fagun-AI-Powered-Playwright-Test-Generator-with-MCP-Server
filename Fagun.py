@@ -896,6 +896,10 @@ def _prompt_int_in_range(label: str, default_value: int, min_value: int, max_val
             raise
         if not raw:
             return default_value
+        # If the user pasted non-numeric spec text here, accept default silently
+        if not raw.isdigit():
+            print(f"{Fore.YELLOW}Using default {default_value} (received non-numeric input).{Style.RESET_ALL}")
+            return default_value
         try:
             val = int(raw)
             if val < min_value or val > max_value:
@@ -1109,23 +1113,28 @@ async def main():
             print(f"\n{Fore.CYAN}{Style.BRIGHT}Select agents to run (press Enter for ALL){Style.RESET_ALL}")
             for idx, r in enumerate(roles_catalog, 1):
                 print(f"{Fore.YELLOW}{idx}{Style.RESET_ALL}. {r['name']} – {r['hint']}")
-            try:
-                sel = input(f"{Fore.GREEN}➤ Enter comma-separated choices (e.g., 1,2,5){Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(default=all){Style.RESET_ALL}: ").strip()
-            except EOFError:
-                sel = ""
-            except KeyboardInterrupt:
-                print("\n🛑 Cancelled by user.")
-                return
+        try:
+            sel = input(f"{Fore.GREEN}➤ Enter comma-separated choices (e.g., 1,2,5){Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(default=all){Style.RESET_ALL}: ").strip()
+        except EOFError:
+            sel = ""
+        except KeyboardInterrupt:
+            print("\n🛑 Cancelled by user.")
+            return
             if not sel:
                 roles = roles_catalog[:]
             else:
-                picked = []
-                for part in sel.split(','):
-                    part = part.strip()
-                    if part.isdigit():
-                        i = int(part)
-                        if 1 <= i <= len(roles_catalog):
-                            picked.append(roles_catalog[i-1])
+            picked = []
+            for part in sel.split(','):
+                part = part.strip()
+                if not part:
+                    continue
+                if part.isdigit():
+                    i = int(part)
+                    if 1 <= i <= len(roles_catalog):
+                        picked.append(roles_catalog[i-1])
+                else:
+                    # Ignore non-numeric pasted lines gracefully
+                    continue
                 roles = picked or roles_catalog[:]
             num_agents = len(roles)
             print(f"{Fore.GREEN}✔ Selected {num_agents} agent(s).{Style.RESET_ALL}")
