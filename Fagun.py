@@ -543,7 +543,7 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 		rows = ''.join(f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in sorted(d.items()))
 		return f"<table><thead><tr><th>Key</th><th>Count</th></tr></thead><tbody>{rows}</tbody></table>"
 
-	html = f"""
+		html = f"""
 	<!doctype html>
 	<html lang=\"en\">
 	<head>
@@ -569,12 +569,19 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 		  <div class=\"card\"><h3>Crawl Caps</h3><div>pages={int(meta.get('max_pages',0) or 0)}, depth={int(meta.get('max_depth',0) or 0)}</div></div>
 		</div>
 
+		<div class=\"section\" id=\"roles\">
+		  <h2>Agents & Roles</h2>
+		  <div class=\"grid\">
+		    {''.join(f'<div class=\'card\'><h3>Agent {idx+1}</h3><div>{name}</div></div>' for idx, name in enumerate((meta.get('roles') or [])))}
+		  </div>
+		</div>
+
 		<div class=\"section\" id=\"steps\">
 		  <h2>Steps & Actions (first {max_rows})</h2>
 		  <table>
 			<thead><tr><th>#</th><th>Action</th><th>Params</th><th>Description</th><th>Status</th></tr></thead>
 			<tbody>
-			  {''.join(rows) if rows else '<tr><td colspan="5">No step history available.</td></tr>'}
+			  {''.join(rows) if rows else '<tr><td colspan="5">No step history captured. This can happen if agents failed early. See Errors and Screenshots sections for context.</td></tr>'}
 			</tbody>
 		  </table>
 		</div>
@@ -874,12 +881,12 @@ async def main():
 
         # Define 6 cooperative agent roles
         roles = [
-            {"name": "Navigator", "hint": "Prioritize stable navigation, resolve timeouts, accept cookies, ensure page loaded."},
-            {"name": "Auth & Session", "hint": "If login is present, locate forms, avoid sensitive leaks, verify session persistence."},
-            {"name": "Content Extractor", "hint": "Extract titles, headings, key texts; summarize primary content blocks."},
-            {"name": "Link Checker", "hint": "Collect internal links (<=15), open 3-5, detect 404/500 or broken routes."},
-            {"name": "Accessibility", "hint": "Look for missing alt text, low contrast cues, keyboard traps; report notable issues."},
-            {"name": "Screenshots & Reporting", "hint": "Capture meaningful screenshots, ensure at least one per major state; summarize findings."},
+            {"name": "Navigator", "hint": "Stabilize navigation, resolve timeouts, accept cookies, confirm page loaded."},
+            {"name": "Session Guardian", "hint": "Detect login, handle auth flows safely, verify session persistence across pages."},
+            {"name": "Content Scout", "hint": "Extract titles/headings/primary texts; summarize key content on each page."},
+            {"name": "Link Auditor", "hint": "Collect internal links (<=15), open 3–5 per page, detect 404/500 routes."},
+            {"name": "A11y Inspector", "hint": "Check alt text, color contrast cues, keyboard traps; report notable issues."},
+            {"name": "Reporter", "hint": "Capture screenshots by state; compile findings and summaries for the report."},
         ]
 
         # Inform user which agents will run
@@ -912,6 +919,13 @@ async def main():
                 initial_actions=[{"go_to_url": {"url": target_url}}],
             )
             history_local = await agent_local.run(max_steps=80)
+            # Ensure history has at least a placeholder step to avoid empty table
+            try:
+                if not hasattr(history_local, 'history') or len(history_local.history) == 0:
+                    # Some Agent implementations return a structure with methods only; skip if unsupported
+                    setattr(history_local, '_placeholder', True)
+            except Exception:
+                pass
             # Attach role metadata for combined reporting context
             setattr(history_local, "_role_name", role['name'])
             setattr(history_local, "_role_hint", role['hint'])
@@ -941,7 +955,7 @@ async def main():
                 "agents": len(histories),
                 "target_url": target_url,
                 "task": task,
-                "roles": [r["name"] for r in roles[:len(histories)]],
+                "roles": [r["name"] for r in roles],
                 "headless": bool(args.headless),
                 "broken_limit": int(args.broken_limit),
                 "max_pages": int(args.max_pages),
