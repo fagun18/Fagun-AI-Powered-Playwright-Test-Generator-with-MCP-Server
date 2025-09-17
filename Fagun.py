@@ -1151,6 +1151,15 @@ async def main():
                 f"Target to open first: {target_url}\n\n"
                 + task
             )
+            # Ensure only the first agent opens a visible browser; others run headless
+            try:
+                if idx == 1 and not bool(args.headless):
+                    os.environ["BROWSER_USE_HEADLESS"] = "0"
+                else:
+                    os.environ["BROWSER_USE_HEADLESS"] = "1"
+            except Exception:
+                pass
+
             llm_local = build_llm(provider_key)
             agent_local = Agent(
                 task=role_task,
@@ -1172,7 +1181,8 @@ async def main():
         tasks = []
         for i in range(min(len(roles), num_agents)):
             async def delayed(i=i):
-                await asyncio.sleep(i * 1.0)
+                # Increased stagger to reduce Playwright contention (screenshots, fonts)
+                await asyncio.sleep(i * 2.0)
                 return await run_role_agent(i + 1, roles[i])
             tasks.append(delayed())
         try:
@@ -1204,8 +1214,16 @@ async def main():
         print(f"📁 Combined report saved to: {combined_report}")
         
     except Exception as e:
-        print(f"\n❌ Error during testing: {str(e)}")
-        print("Please check your API key and try again.")
+        msg = str(e)
+        friendly = msg
+        if "Page.screenshot: Timeout" in msg:
+            friendly = (
+                "Screenshot timed out. The page may be heavy or parallel jobs are contending. "
+                "Suggestions: increase stagger, reduce agents, or set headless for background agents."
+            )
+        elif "API key" in msg or "API_KEY_INVALID" in msg:
+            friendly = "The selected provider API key seems invalid. Update your .env and retry."
+        print(f"\n❌ Error during testing: {friendly}")
         import traceback
         traceback.print_exc()
 
