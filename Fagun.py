@@ -751,6 +751,26 @@ def get_user_input():
     
     return target_url, test_choice, custom_prompt
 
+def _prompt_int_in_range(label: str, default_value: int, min_value: int, max_value: int) -> int:
+    while True:
+        try:
+            raw = input(f"{Fore.GREEN}➤ {label}{Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(default={default_value}, min={min_value}, max={max_value}){Style.RESET_ALL}: ").strip()
+        except EOFError:
+            raw = ""
+        except KeyboardInterrupt:
+            print("\n")
+            raw = ""
+        if not raw:
+            return default_value
+        try:
+            val = int(raw)
+            if val < min_value or val > max_value:
+                print(f"{Fore.RED}❌ Please enter a number between {min_value} and {max_value}.{Style.RESET_ALL}")
+                continue
+            return val
+        except ValueError:
+            print(f"{Fore.RED}❌ Invalid number. Please try again.{Style.RESET_ALL}")
+
 def create_default_prompt(target_url, test_type):
     """Create default test prompt using BrowserUse actions"""
     # Default scenario (requested): visit personal site, click Contact Me, open LinkedIn follow URL
@@ -842,12 +862,23 @@ async def main():
     print("✅ Gemini API key ready!")
     
     # Get user input or use CLI overrides
-    if args.url or args.type:
+    interactive = not (args.url or args.type or args.agents != 6 or args.headless or args.broken_limit != 100 or args.max_pages != 30 or args.max_depth != 3)
+    if not interactive:
         target_url = args.url or "https://fagun.sqatesting.com/"
         test_choice = "2" if (args.type or "default").lower() == "custom" else "1"
         custom_prompt = (args.prompt or "").strip() if test_choice == "2" else ""
+        num_agents = int(args.agents)
+        max_pages = int(args.max_pages)
+        max_depth = int(args.max_depth)
+        broken_limit = int(args.broken_limit)
     else:
         target_url, test_choice, custom_prompt = get_user_input()
+        # Ask runtime settings with validation
+        print(f"\n{Fore.CYAN}{Style.BRIGHT}Runtime settings{Style.RESET_ALL}")
+        num_agents = _prompt_int_in_range("How many agents to use?", 6, 1, 6)
+        max_pages = _prompt_int_in_range("Maximum pages to crawl?", 30, 1, 1000)
+        max_depth = _prompt_int_in_range("Maximum crawl depth?", 3, 1, 10)
+        broken_limit = _prompt_int_in_range("Broken-link quick check limit?", 100, 1, 1000)
     
     # Create appropriate prompt and wrap with global requirements
     if test_choice == "2" and custom_prompt:
@@ -863,6 +894,7 @@ async def main():
     test_type_names = {"1": "Default", "2": "Custom"}
     test_type_name = test_type_names.get(test_choice, "Comprehensive")
     print(f"🧪 Test Type: {test_type_name}")
+    print(f"⚙️  Agents={num_agents}, MaxPages={max_pages}, MaxDepth={max_depth}, BrokenLimit={broken_limit}")
     
     print("\n🚀 Starting automated testing...")
     print("=" * 60)
@@ -934,7 +966,7 @@ async def main():
         # Run 6 agents (one per role) in parallel
         # Stagger starts slightly to avoid burst 429s
         tasks = []
-        for i in range(min(len(roles), args.agents)):
+        for i in range(min(len(roles), num_agents)):
             # small delay per agent (increase to 1.0s)
             async def delayed(i=i):
                 await asyncio.sleep(i * 1.0)
@@ -946,8 +978,8 @@ async def main():
 
         # Combined report
         # Expose crawl constraints to the task wrapper via env for this process
-        os.environ["FAGUN_MAX_PAGES"] = str(args.max_pages)
-        os.environ["FAGUN_MAX_DEPTH"] = str(args.max_depth)
+        os.environ["FAGUN_MAX_PAGES"] = str(max_pages)
+        os.environ["FAGUN_MAX_DEPTH"] = str(max_depth)
 
         combined_report = generate_combined_html_report(
             histories,
@@ -957,9 +989,9 @@ async def main():
                 "task": task,
                 "roles": [r["name"] for r in roles],
                 "headless": bool(args.headless),
-                "broken_limit": int(args.broken_limit),
-                "max_pages": int(args.max_pages),
-                "max_depth": int(args.max_depth),
+                "broken_limit": int(broken_limit),
+                "max_pages": int(max_pages),
+                "max_depth": int(max_depth),
             },
         )
         print(f"📁 Combined report saved to: {combined_report}")
