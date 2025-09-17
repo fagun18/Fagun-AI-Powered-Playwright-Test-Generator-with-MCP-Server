@@ -972,7 +972,11 @@ async def main():
                 await asyncio.sleep(i * 1.0)
                 return await run_role_agent(i + 1, roles[i])
             tasks.append(delayed())
-        histories = await asyncio.gather(*tasks, return_exceptions=False)
+        try:
+            histories = await asyncio.gather(*tasks, return_exceptions=False)
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            print("\n🛑 Run cancelled by user. Partial results may be incomplete.")
+            return
 
         print("\n✅ All agents completed!")
 
@@ -1003,4 +1007,13 @@ async def main():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n🛑 Run cancelled by user (Ctrl+C). Exiting...")
+        try:
+            # Ensure a newline flush before exit on some terminals
+            sys.stdout.flush()
+        except Exception:
+            pass
+        sys.exit(130)
