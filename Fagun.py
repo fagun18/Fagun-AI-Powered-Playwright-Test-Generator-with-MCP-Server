@@ -1085,15 +1085,53 @@ async def main():
             history_local = await agent_local.run(max_steps=50)
             return history_local
 
-        # Define 6 cooperative agent roles
-        roles = [
+        # Master role catalog (extendable)
+        roles_catalog = [
             {"name": "Navigator", "hint": "Stabilize navigation, resolve timeouts, accept cookies, confirm page loaded."},
             {"name": "Session Guardian", "hint": "Detect login, handle auth flows safely, verify session persistence across pages."},
             {"name": "Content Scout", "hint": "Extract titles/headings/primary texts; summarize key content on each page."},
             {"name": "Link Auditor", "hint": "Collect internal links (<=15), open 3–5 per page, detect 404/500 routes."},
             {"name": "A11y Inspector", "hint": "Check alt text, color contrast cues, keyboard traps; report notable issues."},
             {"name": "Reporter", "hint": "Capture screenshots by state; compile findings and summaries for the report."},
+            {"name": "Performance Profiler", "hint": "Measure load time cues, note heavy resources; flag slow pages."},
+            {"name": "Form Fuzzer", "hint": "Fuzz all forms with boundary/special/invalid inputs; verify validation."},
+            {"name": "Visual Regressor", "hint": "Capture comparable screenshots; detect layout shifts or overlaps."},
+            {"name": "SEO Auditor", "hint": "Check title/meta/headers/canonical/robots/sitemap presence and issues."},
+            {"name": "Security Scout", "hint": "Look for mixed content and missing security headers on pages."},
+            {"name": "Mobile Emulator", "hint": "Use mobile viewport; validate menus, touch targets, sticky UI."},
+            {"name": "Cookie & Consent Manager", "hint": "Exercise cookie banner and preference persistence."},
+            {"name": "Pagination & Infinite Scroll", "hint": "Trigger next/LoadMore; ensure unique items and updated URLs."},
+            {"name": "Internationalization Checker", "hint": "Verify locale switches and formatting of date/number/currency."},
         ]
+
+        # Interactive role selection only in interactive mode
+        if interactive:
+            print(f"\n{Fore.CYAN}{Style.BRIGHT}Select agents to run (press Enter for ALL){Style.RESET_ALL}")
+            for idx, r in enumerate(roles_catalog, 1):
+                print(f"{Fore.YELLOW}{idx}{Style.RESET_ALL}. {r['name']} – {r['hint']}")
+            try:
+                sel = input(f"{Fore.GREEN}➤ Enter comma-separated choices (e.g., 1,2,5){Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(default=all){Style.RESET_ALL}: ").strip()
+            except EOFError:
+                sel = ""
+            except KeyboardInterrupt:
+                print("\n🛑 Cancelled by user.")
+                return
+            if not sel:
+                roles = roles_catalog[:]
+            else:
+                picked = []
+                for part in sel.split(','):
+                    part = part.strip()
+                    if part.isdigit():
+                        i = int(part)
+                        if 1 <= i <= len(roles_catalog):
+                            picked.append(roles_catalog[i-1])
+                roles = picked or roles_catalog[:]
+            num_agents = len(roles)
+            print(f"{Fore.GREEN}✔ Selected {num_agents} agent(s).{Style.RESET_ALL}")
+        else:
+            # Non-interactive: default to the first 6 core roles
+            roles = roles_catalog[:6]
 
         # Inform user which agents will run
         print(f"\n🧩 Launching {len(roles)} agents with roles:")
@@ -1121,23 +1159,18 @@ async def main():
                 initial_actions=[{"go_to_url": {"url": target_url}}],
             )
             history_local = await agent_local.run(max_steps=80)
-            # Ensure history has at least a placeholder step to avoid empty table
             try:
                 if not hasattr(history_local, 'history') or len(history_local.history) == 0:
-                    # Some Agent implementations return a structure with methods only; skip if unsupported
                     setattr(history_local, '_placeholder', True)
             except Exception:
                 pass
-            # Attach role metadata for combined reporting context
             setattr(history_local, "_role_name", role['name'])
             setattr(history_local, "_role_hint", role['hint'])
             return history_local
 
-        # Run 6 agents (one per role) in parallel
-        # Stagger starts slightly to avoid burst 429s
+        # Build tasks for selected roles up to num_agents
         tasks = []
         for i in range(min(len(roles), num_agents)):
-            # small delay per agent (increase to 1.0s)
             async def delayed(i=i):
                 await asyncio.sleep(i * 1.0)
                 return await run_role_agent(i + 1, roles[i])
