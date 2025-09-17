@@ -543,7 +543,25 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 		rows = ''.join(f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in sorted(d.items()))
 		return f"<table><thead><tr><th>Key</th><th>Count</th></tr></thead><tbody>{rows}</tbody></table>"
 
-		try:
+	# Default minimal HTML to avoid NameError if an upstream error occurs
+	html = """
+<!doctype html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"utf-8\"/>
+  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/>
+  <title>Fagun Report (Pending)</title>
+  <style>{css}</style>
+</head>
+<body>
+  <div class=\"wrap\">
+    <div class=\"card\">Building report...</div>
+  </div>
+</body>
+</html>
+"""
+
+	try:
 			html = f"""
 	<!doctype html>
 	<html lang=\"en\">
