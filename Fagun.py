@@ -502,9 +502,10 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 		else:
 			shot_items.append(f"<div class='shot'><img src='{str(s)}' alt='screenshot'/></div>")
 
-	# Basic broken URL check (limit to 20)
+	# Basic broken URL check (limit configurable)
 	broken_rows = []
-	for u in dedup_urls[:20]:
+	broken_limit = int(meta.get('broken_limit', 100) or 100)
+	for u in dedup_urls[:broken_limit]:
 		try:
 			r = requests.head(u, timeout=6, allow_redirects=True)
 			if r.status_code >= 400:
@@ -804,7 +805,9 @@ async def main():
     parser.add_argument("--url", help="Target URL (overrides interactive prompt)")
     parser.add_argument("--type", choices=["default", "custom"], help="Test type (default/custom)")
     parser.add_argument("--prompt", help="Custom prompt text when --type custom")
-    parser.add_argument("--agents", type=int, default=3, help="Number of parallel agents (default: 3)")
+    parser.add_argument("--agents", type=int, default=6, help="Number of parallel agents (default: 6)")
+    parser.add_argument("--headless", action="store_true", help="Run in headless mode (if supported)")
+    parser.add_argument("--broken-limit", type=int, default=100, help="Max number of URLs to quick-check for broken links in report (default: 100)")
     args = parser.parse_args()
 
     # Ensure dependencies
@@ -891,7 +894,7 @@ async def main():
                 use_vision=True,
                 initial_actions=[{"go_to_url": {"url": target_url}}],
             )
-            history_local = await agent_local.run(max_steps=50)
+            history_local = await agent_local.run(max_steps=80)
             # Attach role metadata for combined reporting context
             setattr(history_local, "_role_name", role['name'])
             setattr(history_local, "_role_hint", role['hint'])
@@ -918,6 +921,8 @@ async def main():
                 "target_url": target_url,
                 "task": task,
                 "roles": [r["name"] for r in roles[:len(histories)]],
+                "headless": bool(args.headless),
+                "broken_limit": int(args.broken_limit),
             },
         )
         print(f"📁 Combined report saved to: {combined_report}")
