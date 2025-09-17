@@ -566,6 +566,7 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 		  <a href=\"#steps\" style=\"text-decoration:none\"><div class=\"card\"><h3>Total Duration</h3><div class=\"big\">{duration:.2f}s</div></div></a>
 		  <a href=\"#urls\" style=\"text-decoration:none\"><div class=\"card\"><h3>Unique URLs</h3><div class=\"big\">{len(dedup_urls)}</div></div></a>
 		  <a href=\"#errors\" style=\"text-decoration:none\"><div class=\"card\"><h3>Errors</h3><div class=\"big {'err' if any(all_errors) else 'ok'}\">{len([e for e in all_errors if e])}</div></div></a>
+		  <div class=\"card\"><h3>Crawl Caps</h3><div>pages={int(meta.get('max_pages',0) or 0)}, depth={int(meta.get('max_depth',0) or 0)}</div></div>
 		</div>
 
 		<div class=\"section\" id=\"steps\">
@@ -762,6 +763,9 @@ Notes:
 
 def build_task(base_prompt: str, target_url: str, is_custom: bool) -> str:
     """Wrap the user's prompt (or default) with structured requirements for exhaustive test data and reporting."""
+    # Read crawl constraints from env set by CLI (fallbacks used if not set)
+    max_pages = os.getenv("FAGUN_MAX_PAGES", "30")
+    max_depth = os.getenv("FAGUN_MAX_DEPTH", "3")
     requirements = f"""
 
 GLOBAL REQUIREMENTS:
@@ -773,6 +777,17 @@ GLOBAL REQUIREMENTS:
 - Take meaningful screenshots for major states (initial, after fill, after submit, error states) and ensure at least 4.
 - Summarize key findings.
 - Prefer deterministic actions, minimal retries; respect same-origin navigation.
+
+CRAWLING RULES (Breadth-First):
+- Crawl same-origin links only; never leave {urlparse(target_url).netloc}.
+- Maintain a visited set; avoid revisiting URLs.
+- Use a breadth-first strategy with queue behavior.
+- Stop when you reach either max pages ({max_pages}) or max depth ({max_depth}).
+- For each visited page: capture a screenshot, extract title and primary headings, and quickly scan for obvious CTAs and forms.
+
+LINK DISCOVERY:
+- Extract all <a> links with href that are same-origin, normalize relative URLs to absolute.
+- De-duplicate and enqueue while respecting depth and page caps.
 
 OUTPUT FILES (use write_file action):
 1) reports/test_cases.json — JSON array of test cases as described above
@@ -808,6 +823,8 @@ async def main():
     parser.add_argument("--agents", type=int, default=6, help="Number of parallel agents (default: 6)")
     parser.add_argument("--headless", action="store_true", help="Run in headless mode (if supported)")
     parser.add_argument("--broken-limit", type=int, default=100, help="Max number of URLs to quick-check for broken links in report (default: 100)")
+    parser.add_argument("--max-pages", type=int, default=30, help="Max same-origin pages to crawl (breadth-first) per run (default: 30)")
+    parser.add_argument("--max-depth", type=int, default=3, help="Max link depth to traverse (default: 3)")
     args = parser.parse_args()
 
     # Ensure dependencies
@@ -914,6 +931,10 @@ async def main():
         print("\n✅ All agents completed!")
 
         # Combined report
+        # Expose crawl constraints to the task wrapper via env for this process
+        os.environ["FAGUN_MAX_PAGES"] = str(args.max_pages)
+        os.environ["FAGUN_MAX_DEPTH"] = str(args.max_depth)
+
         combined_report = generate_combined_html_report(
             histories,
             meta={
@@ -923,6 +944,8 @@ async def main():
                 "roles": [r["name"] for r in roles[:len(histories)]],
                 "headless": bool(args.headless),
                 "broken_limit": int(args.broken_limit),
+                "max_pages": int(args.max_pages),
+                "max_depth": int(args.max_depth),
             },
         )
         print(f"📁 Combined report saved to: {combined_report}")
