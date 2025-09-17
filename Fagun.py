@@ -827,9 +827,10 @@ def _collect_element_labels(all_action_history: List[Any], all_actions: List[Any
 				labels.setdefault(idx, label)
 	return labels
 
-def get_user_input():
+def get_user_input(show_banner: bool = True):
     """Get test configuration from user"""
-    print_banner()
+    if show_banner:
+        print_banner()
     
     # Get target URL
     try:
@@ -990,7 +991,8 @@ async def main():
     # Ensure dependencies
     ensure_dependencies()
 
-    # Model/provider selection
+    # Show banner then model/provider selection
+    print_banner()
     providers = [
         ("google", "Gemini (Google)"),
         ("openai", "OpenAI (o3)"),
@@ -1048,7 +1050,7 @@ async def main():
         max_depth = int(args.max_depth)
         broken_limit = int(args.broken_limit)
     else:
-        target_url, test_choice, custom_prompt = get_user_input()
+        target_url, test_choice, custom_prompt = get_user_input(show_banner=False)
         # Ask runtime settings with validation
         print(f"\n{Fore.CYAN}{Style.BRIGHT}Runtime settings{Style.RESET_ALL}")
         num_agents = _prompt_int_in_range("How many agents to use?", 6, 1, 6)
