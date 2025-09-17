@@ -1,0 +1,9 @@
+browser-use
+langchain-google-genai
+python-dotenv
+colorama
+playwright
+requests
+language-tool-python
+aiohttp
+pydantic
