@@ -32,10 +32,98 @@ except Exception:
 from browser_use import Agent
 
 
-def check_api_key():
-    """Check if API key is available in environment variables"""
+def _read_env_file_lines(env_path: Path) -> List[str]:
+    try:
+        return env_path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return []
+    except Exception:
+        return []
+
+def _write_env_key(env_path: Path, key: str, value: str) -> None:
+    lines = _read_env_file_lines(env_path)
+    key_prefix = f"{key}="
+    updated = False
+    new_lines: List[str] = []
+    for line in lines:
+        if line.strip().startswith(f"#"):
+            new_lines.append(line)
+            continue
+        if line.startswith(key_prefix):
+            new_lines.append(f"{key}={value}")
+            updated = True
+        else:
+            new_lines.append(line)
+    if not updated:
+        new_lines.append(f"{key}={value}")
+    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+def _prompt_for_api_key() -> Optional[str]:
+    print("❌ Gemini API key not found.")
+    print("Get one from: https://aistudio.google.com/")
+    try:
+        entered = input("➤ Enter your GEMINI_API_KEY (leave empty to cancel): ").strip()
+    except EOFError:
+        entered = ""
+    except KeyboardInterrupt:
+        print("\n")
+        entered = ""
+    return entered or None
+
+def _looks_like_gemini_key(value: str) -> bool:
+    # Most Google API keys start with AIza; allow others but prefer this
+    return len(value) >= 20 and (value.startswith("AIza") or value.startswith("AI"))
+
+def _validate_api_key_quick(api_key: str) -> bool:
+    try:
+        llm_test = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            temperature=0.0,
+            google_api_key=api_key,
+        )
+        # Minimal no-op ping
+        _ = llm_test.invoke("ping")
+        return True
+    except Exception as ex:
+        msg = str(ex)
+        if "API key not valid" in msg or "API_KEY_INVALID" in msg:
+            return False
+        # For network or transient errors, don't block startup here
+        return True
+
+def ensure_gemini_api_key() -> str:
+    """Ensure GEMINI_API_KEY exists; prompt and persist to .env if missing or invalid."""
     load_dotenv()
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
+
+    if not api_key or api_key.lower() in {"your_api_key_here", "changeme"}:
+        entered = _prompt_for_api_key()
+        if not entered:
+            print("❌ No API key provided. Exiting.")
+            sys.exit(1)
+        api_key = entered
+        # Persist
+        env_path = Path(".env")
+        _write_env_key(env_path, "GEMINI_API_KEY", api_key)
+        os.environ["GEMINI_API_KEY"] = api_key
+        print("✅ API key saved to .env")
+
+    # Quick sanity check; if clearly invalid, allow user to re-enter once
+    if not _validate_api_key_quick(api_key):
+        print("❌ The provided API key appears invalid (API_KEY_INVALID).")
+        entered = _prompt_for_api_key()
+        if not entered:
+            print("❌ No new API key provided. Exiting.")
+            sys.exit(1)
+        api_key = entered.strip()
+        env_path = Path(".env")
+        _write_env_key(env_path, "GEMINI_API_KEY", api_key)
+        os.environ["GEMINI_API_KEY"] = api_key
+        print("✅ Updated API key saved to .env")
+
+    if not _looks_like_gemini_key(api_key):
+        print("⚠️ The API key format looks unusual. Proceeding anyway.")
+
     return api_key
 
 def print_banner():
@@ -278,6 +366,18 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 	screenshots_any: List[Any] = []
 	is_base64 = False
 
+	# Optional: load generated test cases if present
+	test_cases_path = reports_dir / "test_cases.json"
+	test_cases: List[Dict[str, Any]] = []
+	try:
+		if test_cases_path.exists():
+			data = test_cases_path.read_text(encoding="utf-8")
+			parsed = json.loads(data)
+			if isinstance(parsed, list):
+				test_cases = parsed
+	except Exception:
+		pass
+
 	for h in histories:
 		# Safe getters
 		total_steps += safe_get(lambda: h.number_of_steps(), 0) or 0
@@ -425,6 +525,23 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 
 	pretty_task = meta.get('task', '') or ''
 
+	# Summaries for test cases
+	case_count = len(test_cases)
+	by_field: Dict[str, int] = {}
+	by_category: Dict[str, int] = {}
+	if test_cases:
+		for c in test_cases:
+			field = str(c.get('field', 'unknown')).strip().lower() or 'unknown'
+			cat = str(c.get('category', 'misc')).strip().lower() or 'misc'
+			by_field[field] = by_field.get(field, 0) + 1
+			by_category[cat] = by_category.get(cat, 0) + 1
+
+	def _kv_table(d: Dict[str, int]) -> str:
+		if not d:
+			return '<div class="card">No data.</div>'
+		rows = ''.join(f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in sorted(d.items()))
+		return f"<table><thead><tr><th>Key</th><th>Count</th></tr></thead><tbody>{rows}</tbody></table>"
+
 	html = f"""
 	<!doctype html>
 	<html lang=\"en\">
@@ -493,6 +610,23 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 				{''.join(grammar_items) if grammar_items else '<tr><td colspan=\"3\">No grammar issues or grammar tool unavailable.</td></tr>'}
 			  </tbody>
 			</table>
+		  </details>
+		</div>
+
+		<div class=\"section\" id=\"cases\">
+		  <details open>
+			<summary><h2 class=\"clickable\" style=\"display:inline\">Test Case Summary ({case_count})</h2></summary>
+			<div class=\"grid\">
+			  <div class=\"card\"><h3>Total Cases</h3><div class=\"big acc\">{case_count}</div></div>
+			  <div class=\"card\"><h3>Fields Covered</h3><div class=\"big\">{len(by_field)}</div></div>
+			  <div class=\"card\"><h3>Categories</h3><div class=\"big\">{len(by_category)}</div></div>
+			  <div class=\"card\"><h3>Cases File</h3><div>reports/test_cases.json</div></div>
+			</div>
+			<h3>By Field</h3>
+			{_kv_table(by_field)}
+			<h3>By Category</h3>
+			{_kv_table(by_category)}
+			{('<div class=\"card\">No test cases found.</div>' if case_count == 0 else '')}
 		  </details>
 		</div>
 
@@ -625,6 +759,30 @@ Notes:
 - If LinkedIn requires authentication, do not attempt to bypass; just record that login is required and save the finding.
 """
 
+def build_task(base_prompt: str, target_url: str, is_custom: bool) -> str:
+    """Wrap the user's prompt (or default) with structured requirements for exhaustive test data and reporting."""
+    requirements = f"""
+
+GLOBAL REQUIREMENTS:
+- Always start by opening: {target_url}
+- Generate exhaustive test cases and test data for typical contact forms with fields: Name, Email, Subject, Message.
+- Cover valid, invalid, boundary, empty, negative, and special-character scenarios.
+- Represent test cases in structured JSON with keys: field, category, description, input, expected.
+- Save all generated test cases to reports/test_cases.json using write_file.
+- Take meaningful screenshots for major states (initial, after fill, after submit, error states) and ensure at least 4.
+- Summarize key findings.
+- Prefer deterministic actions, minimal retries; respect same-origin navigation.
+
+OUTPUT FILES (use write_file action):
+1) reports/test_cases.json — JSON array of test cases as described above
+2) contact_follow_result.txt or similar summary
+
+CONSTRAINTS:
+- Do not navigate to unrelated external domains.
+- Do not include secrets in any files.
+"""
+    return (base_prompt.strip() + "\n\n" + requirements).strip()
+
 def ensure_dependencies():
 	try:
 		import playwright  # type: ignore
@@ -652,20 +810,9 @@ async def main():
     # Ensure dependencies
     ensure_dependencies()
 
-    # Check API key first
-    api_key = check_api_key()
-    
-    if not api_key:
-        print("❌ ERROR: Gemini API key not found!")
-        print("\nTo fix this:")
-        print("1. Get your API key from: https://aistudio.google.com/")
-        print("2. Create a .env file in the project directory")
-        print("3. Add this line to .env: GEMINI_API_KEY=your_api_key_here")
-        print("\nExample .env file content:")
-        print("GEMINI_API_KEY=AIzaSyC...")
-        sys.exit(1)
-    
-    print("✅ API key found!")
+    # Ensure API key exists (prompt and persist if missing/invalid)
+    api_key = ensure_gemini_api_key()
+    print("✅ Gemini API key ready!")
     
     # Get user input or use CLI overrides
     if args.url or args.type:
@@ -675,11 +822,13 @@ async def main():
     else:
         target_url, test_choice, custom_prompt = get_user_input()
     
-    # Create appropriate prompt
+    # Create appropriate prompt and wrap with global requirements
     if test_choice == "2" and custom_prompt:
-        task = custom_prompt
+        base = custom_prompt
+        task = build_task(base, target_url, is_custom=True)
     else:
-        task = create_default_prompt(target_url, test_choice)
+        base = create_default_prompt(target_url, test_choice)
+        task = build_task(base, target_url, is_custom=False)
     
     print(f"\n🎯 Target URL: {target_url}")
     
