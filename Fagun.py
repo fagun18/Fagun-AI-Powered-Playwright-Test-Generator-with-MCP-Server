@@ -562,7 +562,7 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 """
 
 	try:
-			html = f"""
+		html = f"""
 	<!doctype html>
 	<html lang=\"en\">
 	<head>
@@ -663,10 +663,10 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 	</body>
 	</html>
 	"""
-		except Exception as _err:
-			import traceback as _tb
-			err_msg = f"HTML build error: {str(_err)}\n\n{_tb.format_exc()}"
-			html = f"""
+	except Exception as _err:
+		import traceback as _tb
+		err_msg = f"HTML build error: {str(_err)}\n\n{_tb.format_exc()}"
+		html = f"""
 	<!doctype html>
 	<html lang=\"en\">
 	<head>
