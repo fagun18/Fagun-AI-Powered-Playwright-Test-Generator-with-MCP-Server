@@ -12,13 +12,6 @@ logging.getLogger("browser_use.agent.service").setLevel(logging.ERROR)
 
 from dotenv import load_dotenv
 from browser_use import Agent
-from browser_use import ChatGoogle as BUChatGoogle
-from browser_use import ChatOpenAI as BUChatOpenAI
-from browser_use import ChatAnthropic as BUChatAnthropic
-from browser_use import ChatAzureOpenAI as BUChatAzureOpenAI
-from browser_use import ChatAWSBedrock as BUChatAWSBedrock
-from browser_use import ChatGroq as BUChatGroq
-from browser_use import ChatOllama as BUChatOllama
 from colorama import init as colorama_init, Fore, Style
 from datetime import datetime
 from pathlib import Path
@@ -179,30 +172,44 @@ def ensure_env_vars_for_provider(provider: str) -> bool:
 
 def build_llm(provider: str):
     provider = provider.lower()
+    # Use langchain wrappers already present in requirements for portability
     if provider == "google":
-        return BUChatGoogle(model='gemini-2.5-flash')
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        return ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.0, google_api_key=(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or ""))
     if provider == "openai":
-        return BUChatOpenAI(model='o3')
+        from langchain_openai import ChatOpenAI as LCChatOpenAI
+        return LCChatOpenAI(model="o3", temperature=0.0)
     if provider == "anthropic":
-        return BUChatAnthropic(model='claude-sonnet-4-0')
+        from langchain_anthropic import ChatAnthropic as LCChatAnthropic
+        return LCChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.0)
     if provider == "azure_openai":
-        return BUChatAzureOpenAI(model='o4-mini')
-    if provider == "aws_bedrock":
-        return BUChatAWSBedrock(model='anthropic.claude-3-5-sonnet-20240620-v1:0', aws_region=os.getenv('AWS_DEFAULT_REGION','us-east-1'))
+        from langchain_openai import AzureChatOpenAI
+        return AzureChatOpenAI(model="o4-mini", temperature=0.0)
     if provider == "groq":
-        return BUChatGroq(model='meta-llama/llama-4-maverick-17b-128e-instruct')
-    if provider == "ollama":
-        return BUChatOllama(model='llama3.1:8b')
+        from langchain_openai import ChatOpenAI as LCChatOpenAI
+        return LCChatOpenAI(model="meta-llama/llama-4-maverick-17b-128e-instruct", base_url="https://api.groq.com/openai/v1", temperature=0.0)
     if provider == "openrouter":
-        return BUChatOpenAI(model='x-ai/grok-4', base_url='https://openrouter.ai/api/v1', api_key=os.getenv('OPENROUTER_API_KEY'))
+        from langchain_openai import ChatOpenAI as LCChatOpenAI
+        return LCChatOpenAI(model="x-ai/grok-4", base_url="https://openrouter.ai/api/v1", api_key=os.getenv("OPENROUTER_API_KEY"), temperature=0.0)
     if provider == "novita":
-        return BUChatOpenAI(model='deepseek/deepseek-v3-0324', base_url='https://api.novita.ai/v3/openai', api_key=os.getenv('NOVITA_API_KEY'))
+        from langchain_openai import ChatOpenAI as LCChatOpenAI
+        return LCChatOpenAI(model="deepseek/deepseek-v3-0324", base_url="https://api.novita.ai/v3/openai", api_key=os.getenv("NOVITA_API_KEY"), temperature=0.0)
     if provider == "deepseek":
-        return BUChatOpenAI(model='deepseek-chat', base_url='https://api.deepseek.com/v1', api_key=os.getenv('DEEPSEEK_API_KEY'))
+        from langchain_openai import ChatOpenAI as LCChatOpenAI
+        return LCChatOpenAI(model="deepseek-chat", base_url="https://api.deepseek.com/v1", api_key=os.getenv("DEEPSEEK_API_KEY"), temperature=0.0)
     if provider == "qwen":
-        return BUChatOpenAI(model='qwen-vl-max', base_url='https://dashscope-intl.aliyuncs.com/compatible-mode/v1', api_key=os.getenv('ALIBABA_CLOUD'))
+        from langchain_openai import ChatOpenAI as LCChatOpenAI
+        return LCChatOpenAI(model="qwen-vl-max", base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1", api_key=os.getenv("ALIBABA_CLOUD"), temperature=0.0)
+    if provider == "aws_bedrock":
+        # Keep simple: rely on env and let SDK pick credentials
+        from browser_use.llm import ChatAWSBedrock as BUChatAWSBedrock
+        return BUChatAWSBedrock(model='anthropic.claude-3-5-sonnet-20240620-v1:0', aws_region=os.getenv('AWS_DEFAULT_REGION','us-east-1'))
+    if provider == "ollama":
+        from browser_use.llm import ChatOllama as BUChatOllama
+        return BUChatOllama(model='llama3.1:8b')
     # default to google
-    return BUChatGoogle(model='gemini-2.5-flash')
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    return ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.0, google_api_key=(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or ""))
 
 def print_banner():
 	colorama_init(autoreset=True)
