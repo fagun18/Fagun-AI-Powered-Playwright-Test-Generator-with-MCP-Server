@@ -706,6 +706,9 @@ def get_user_input():
         target_url = input(f"{Fore.GREEN}➤ Enter the target URL to test{Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(press Enter for default){Style.RESET_ALL}: ").strip()
     except EOFError:
         target_url = ""
+    except KeyboardInterrupt:
+        print("\n🛑 Cancelled by user.")
+        raise
     if not target_url:
         target_url = "https://fagun.sqatesting.com/"
     
@@ -719,8 +722,8 @@ def get_user_input():
         except EOFError:
             test_choice = "1"
         except KeyboardInterrupt:
-            print("\n")
-            test_choice = "1"
+            print("\n🛑 Cancelled by user.")
+            raise
         
         # Handle empty input or default
         if not test_choice:
@@ -743,8 +746,8 @@ def get_user_input():
         except EOFError:
             first_line = ""
         except KeyboardInterrupt:
-            print("\n")
-            first_line = ""
+            print("\n🛑 Cancelled by user.")
+            raise
         if not first_line.strip() and not sys.stdin.isatty():
             first_line = "Visit the target URL and perform a quick end-to-end sanity test."
         custom_prompt = first_line.strip()
@@ -758,8 +761,8 @@ def _prompt_int_in_range(label: str, default_value: int, min_value: int, max_val
         except EOFError:
             raw = ""
         except KeyboardInterrupt:
-            print("\n")
-            raw = ""
+            print("\n🛑 Cancelled by user.")
+            raise
         if not raw:
             return default_value
         try:
