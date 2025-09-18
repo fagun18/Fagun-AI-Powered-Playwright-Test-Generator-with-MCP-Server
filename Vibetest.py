@@ -29,6 +29,15 @@ You are a QA agent. Thoroughly sanity-test the website.
 
 
 async def run_single_agent(agent_id: int, url: str, api_key: str, max_steps: int = 40):
+    # First agent can be visible; others headless to avoid contention
+    try:
+        if agent_id == 1:
+            os.environ["BROWSER_USE_HEADLESS"] = "0"
+        else:
+            os.environ["BROWSER_USE_HEADLESS"] = "1"
+    except Exception:
+        pass
+
     llm = ChatGoogleGenerativeAI(
         model="gemini-2.0-flash",
         temperature=0.0,
@@ -38,7 +47,7 @@ async def run_single_agent(agent_id: int, url: str, api_key: str, max_steps: int
     agent = Agent(
         task=build_task(url),
         llm=llm,
-        use_vision=True,
+        use_vision=(agent_id == 1),  # vision only for lead agent to reduce screenshot timeouts
     )
 
     history = await agent.run(max_steps=max_steps)
@@ -72,7 +81,8 @@ async def main():
     args = parser.parse_args()
 
     load_dotenv()
-    api_key = os.getenv("GEMINI_API_KEY")
+    # Support new GOOGLE_API_KEY with fallback to old GEMINI_API_KEY
+    api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
     if not api_key:
         # If Fagun.check_api_key is available, use it
         try:
@@ -82,7 +92,14 @@ async def main():
             api_key = None
 
     if not api_key:
-        print("❌ GEMINI_API_KEY not found in environment. Add it to your .env file.")
+        # Try helper from Fagun to prompt/save
+        try:
+            from Fagun import ensure_google_key  # type: ignore
+            api_key = ensure_google_key()
+        except Exception:
+            api_key = None
+    if not api_key:
+        print("❌ Google API key not found. Add GOOGLE_API_KEY to your .env and retry.")
         return
 
     print(f"🚀 Starting vibetest with {args.agents} agents on {args.url}")
@@ -92,6 +109,7 @@ async def main():
         for i in range(args.agents)
     ]
 
+    # Slight stagger to reduce contention
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     # Simple summary
@@ -99,7 +117,11 @@ async def main():
     reports = []
     for r in results:
         if isinstance(r, Exception):
-            print(f"❌ Agent error: {r}")
+            msg = str(r)
+            if "Page.screenshot: Timeout" in msg:
+                print("❌ Agent error: Screenshot timed out. Try fewer agents or headless background.")
+            else:
+                print(f"❌ Agent error: {msg}")
             continue
         hist = r["history"]
         success = getattr(hist, "is_successful", lambda: None)()

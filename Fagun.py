@@ -170,46 +170,89 @@ def ensure_env_vars_for_provider(provider: str) -> bool:
         return True
     return False
 
+class LLMAdapter:
+    """Wrapper that exposes `provider` and `model` attributes expected by BrowserUse while delegating to the underlying chat model."""
+    def __init__(self, core: Any, provider: str, model: str):
+        self._core = core
+        # Expose attributes used by browser_use token accounting
+        self.provider = provider
+        self.model = model
+
+    @property
+    def model_name(self) -> str:
+        # Some parts of browser_use expect `model_name`
+        return self.model
+
+    def __getattr__(self, item: str):
+        return getattr(self._core, item)
+
+    def invoke(self, *args: Any, **kwargs: Any):
+        return self._core.invoke(*args, **kwargs)
+
+    async def ainvoke(self, *args: Any, **kwargs: Any):
+        return await self._core.ainvoke(*args, **kwargs)
+
+    # Defensive: some third-party validators may treat instances like dicts
+    # and call `.get(...)` during model validation. Provide a benign fallback.
+    def get(self, key: str, default: Any = None) -> Any:
+        return default
+
 def build_llm(provider: str):
     provider = provider.lower()
     # Use langchain wrappers already present in requirements for portability
     if provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
-        return ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.0, google_api_key=(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or ""))
+        _model = "gemini-2.0-flash"
+        return LLMAdapter(
+            ChatGoogleGenerativeAI(model=_model, temperature=0.0, google_api_key=(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "")),
+            provider="google",
+            model=_model,
+        )
     if provider == "openai":
         from langchain_openai import ChatOpenAI as LCChatOpenAI
-        return LCChatOpenAI(model="o3", temperature=0.0)
+        _model = "o3"
+        return LLMAdapter(LCChatOpenAI(model=_model, temperature=0.0), provider="openai", model=_model)
     if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic as LCChatAnthropic
-        return LCChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.0)
+        _model = "claude-3-5-sonnet-20240620"
+        return LLMAdapter(LCChatAnthropic(model=_model, temperature=0.0), provider="anthropic", model=_model)
     if provider == "azure_openai":
         from langchain_openai import AzureChatOpenAI
-        return AzureChatOpenAI(model="o4-mini", temperature=0.0)
+        _model = "o4-mini"
+        return LLMAdapter(AzureChatOpenAI(model=_model, temperature=0.0), provider="azure_openai", model=_model)
     if provider == "groq":
         from langchain_openai import ChatOpenAI as LCChatOpenAI
-        return LCChatOpenAI(model="meta-llama/llama-4-maverick-17b-128e-instruct", base_url="https://api.groq.com/openai/v1", temperature=0.0)
+        _model = "meta-llama/llama-4-maverick-17b-128e-instruct"
+        return LLMAdapter(LCChatOpenAI(model=_model, base_url="https://api.groq.com/openai/v1", temperature=0.0), provider="groq", model=_model)
     if provider == "openrouter":
         from langchain_openai import ChatOpenAI as LCChatOpenAI
-        return LCChatOpenAI(model="x-ai/grok-4", base_url="https://openrouter.ai/api/v1", api_key=os.getenv("OPENROUTER_API_KEY"), temperature=0.0)
+        _model = "x-ai/grok-4"
+        return LLMAdapter(LCChatOpenAI(model=_model, base_url="https://openrouter.ai/api/v1", api_key=os.getenv("OPENROUTER_API_KEY"), temperature=0.0), provider="openrouter", model=_model)
     if provider == "novita":
         from langchain_openai import ChatOpenAI as LCChatOpenAI
-        return LCChatOpenAI(model="deepseek/deepseek-v3-0324", base_url="https://api.novita.ai/v3/openai", api_key=os.getenv("NOVITA_API_KEY"), temperature=0.0)
+        _model = "deepseek/deepseek-v3-0324"
+        return LLMAdapter(LCChatOpenAI(model=_model, base_url="https://api.novita.ai/v3/openai", api_key=os.getenv("NOVITA_API_KEY"), temperature=0.0), provider="novita", model=_model)
     if provider == "deepseek":
         from langchain_openai import ChatOpenAI as LCChatOpenAI
-        return LCChatOpenAI(model="deepseek-chat", base_url="https://api.deepseek.com/v1", api_key=os.getenv("DEEPSEEK_API_KEY"), temperature=0.0)
+        _model = "deepseek-chat"
+        return LLMAdapter(LCChatOpenAI(model=_model, base_url="https://api.deepseek.com/v1", api_key=os.getenv("DEEPSEEK_API_KEY"), temperature=0.0), provider="deepseek", model=_model)
     if provider == "qwen":
         from langchain_openai import ChatOpenAI as LCChatOpenAI
-        return LCChatOpenAI(model="qwen-vl-max", base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1", api_key=os.getenv("ALIBABA_CLOUD"), temperature=0.0)
+        _model = "qwen-vl-max"
+        return LLMAdapter(LCChatOpenAI(model=_model, base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1", api_key=os.getenv("ALIBABA_CLOUD"), temperature=0.0), provider="qwen", model=_model)
     if provider == "aws_bedrock":
         # Keep simple: rely on env and let SDK pick credentials
         from browser_use.llm import ChatAWSBedrock as BUChatAWSBedrock
-        return BUChatAWSBedrock(model='anthropic.claude-3-5-sonnet-20240620-v1:0', aws_region=os.getenv('AWS_DEFAULT_REGION','us-east-1'))
+        _model = 'anthropic.claude-3-5-sonnet-20240620-v1:0'
+        return LLMAdapter(BUChatAWSBedrock(model=_model, aws_region=os.getenv('AWS_DEFAULT_REGION','us-east-1')), provider="aws_bedrock", model=_model)
     if provider == "ollama":
         from browser_use.llm import ChatOllama as BUChatOllama
-        return BUChatOllama(model='llama3.1:8b')
+        _model = 'llama3.1:8b'
+        return LLMAdapter(BUChatOllama(model=_model), provider="ollama", model=_model)
     # default to google
     from langchain_google_genai import ChatGoogleGenerativeAI
-    return ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.0, google_api_key=(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or ""))
+    _model = "gemini-2.0-flash"
+    return LLMAdapter(ChatGoogleGenerativeAI(model=_model, temperature=0.0, google_api_key=(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "")), provider="google", model=_model)
 
 def print_banner():
 	colorama_init(autoreset=True)
@@ -521,6 +564,8 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 	code{background:#0b1220;border:1px solid #334155;border-radius:6px;padding:2px 6px}
 	pre{background:#0b1220;border:1px solid #334155;border-radius:8px;padding:12px;white-space:pre-wrap}
 	.clickable{cursor:pointer}
+	.legend{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+	.legend .card{display:flex;align-items:center;gap:8px}
 	"""
 
 	# Build limited steps table (first 50 rows for readability)
@@ -671,6 +716,17 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 		  <a href=\"#urls\" style=\"text-decoration:none\"><div class=\"card\"><h3>Unique URLs</h3><div class=\"big\">{len(dedup_urls)}</div></div></a>
 		  <a href=\"#errors\" style=\"text-decoration:none\"><div class=\"card\"><h3>Errors</h3><div class=\"big {'err' if any(all_errors) else 'ok'}\">{len([e for e in all_errors if e])}</div></div></a>
 		  <div class=\"card\"><h3>Crawl Caps</h3><div>pages={int(meta.get('max_pages',0) or 0)}, depth={int(meta.get('max_depth',0) or 0)}</div></div>
+		</div>
+
+		<div class=\"section\" id=\"summary\">
+		  <h2>Plain-English Summary</h2>
+		  <div class=\"card\">We visited {len(dedup_urls)} pages and tried actions like opening pages, clicking buttons, filling the Contact form, and taking screenshots. <span class=\"pill\">OK</span> means the step worked. <span class=\"pill\" style=\"border-color:#ef4444;color:#f87171\">ERR</span> means the step didn’t complete (often due to moving elements or timing). Site issues are flagged in Errors and in the bug list below if present.</div>
+
+		  <div class=\"legend\">
+		    <div class=\"card\"><span class=\"pill\">OK</span> Worked as expected</div>
+		    <div class=\"card\"><span class=\"pill\" style=\"border-color:#f59e0b;color:#fbbf24\">WARN</span> Minor/temporary issue</div>
+		    <div class=\"card\"><span class=\"pill\" style=\"border-color:#ef4444;color:#f87171\">ERR</span> Failed step (see notes)</div>
+		  </div>
 		</div>
 
 		<div class=\"section\" id=\"roles\">
@@ -1085,7 +1141,34 @@ async def main():
         # Helper to run a single agent
         async def run_agent_instance(instance_idx: int):
             llm_local = build_llm(provider_key)
-            agent_local = Agent(task=task, llm=llm_local, use_vision=True)
+            core_llm = getattr(llm_local, "_core", llm_local)
+            try:
+                agent_local = Agent(
+                    task=task,
+                    llm=llm_local,
+                    use_vision=True,
+                    flash_mode=True,
+                    include_tool_call_examples=True,
+                    max_failures=5,
+                    llm_timeout=120,
+                    step_timeout=180,
+                    calculate_cost=False,
+                    page_extraction_llm=core_llm,
+                )
+            except TypeError:
+                try:
+                    agent_local = Agent(
+                        task=task,
+                        llm=llm_local,
+                        use_vision=True,
+                        page_extraction_llm=core_llm,
+                    )
+                except TypeError:
+                    agent_local = Agent(
+                        task=task,
+                        llm=llm_local,
+                        use_vision=True,
+                    )
             history_local = await agent_local.run(max_steps=50)
             return history_local
 
@@ -1113,34 +1196,36 @@ async def main():
             print(f"\n{Fore.CYAN}{Style.BRIGHT}Select agents to run (press Enter for ALL){Style.RESET_ALL}")
             for idx, r in enumerate(roles_catalog, 1):
                 print(f"{Fore.YELLOW}{idx}{Style.RESET_ALL}. {r['name']} – {r['hint']}")
-        try:
-            sel = input(f"{Fore.GREEN}➤ Enter comma-separated choices (e.g., 1,2,5){Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(default=all){Style.RESET_ALL}: ").strip()
-        except EOFError:
-            sel = ""
-        except KeyboardInterrupt:
-            print("\n🛑 Cancelled by user.")
-            return
+            try:
+                sel = input(f"{Fore.GREEN}➤ Enter comma-separated choices (e.g., 1,2,5){Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(default=all){Style.RESET_ALL}: ").strip()
+            except EOFError:
+                sel = ""
+            except KeyboardInterrupt:
+                print("\n🛑 Cancelled by user.")
+                return
+            
             if not sel:
                 roles = roles_catalog[:]
             else:
-            picked = []
-            for part in sel.split(','):
-                part = part.strip()
-                if not part:
-                    continue
-                if part.isdigit():
-                    i = int(part)
-                    if 1 <= i <= len(roles_catalog):
-                        picked.append(roles_catalog[i-1])
-                else:
-                    # Ignore non-numeric pasted lines gracefully
-                    continue
+                picked = []
+                for part in sel.split(','):
+                    part = part.strip()
+                    if not part:
+                        continue
+                    if part.isdigit():
+                        i = int(part)
+                        if 1 <= i <= len(roles_catalog):
+                            picked.append(roles_catalog[i-1])
+                    else:
+                        # Ignore non-numeric pasted lines gracefully
+                        continue
                 roles = picked or roles_catalog[:]
             num_agents = len(roles)
             print(f"{Fore.GREEN}✔ Selected {num_agents} agent(s).{Style.RESET_ALL}")
         else:
             # Non-interactive: default to the first 6 core roles
             roles = roles_catalog[:6]
+            num_agents = len(roles)
 
         # Inform user which agents will run
         print(f"\n🧩 Launching {len(roles)} agents with roles:")
@@ -1170,12 +1255,37 @@ async def main():
                 pass
 
             llm_local = build_llm(provider_key)
-            agent_local = Agent(
-                task=role_task,
-                llm=llm_local,
-                use_vision=True,
-                initial_actions=[{"go_to_url": {"url": target_url}}],
-            )
+            core_llm = getattr(llm_local, "_core", llm_local)
+            try:
+                agent_local = Agent(
+                    task=role_task,
+                    llm=llm_local,
+                    use_vision=True,
+                    flash_mode=True,
+                    include_tool_call_examples=True,
+                    max_failures=5,
+                    llm_timeout=120,
+                    step_timeout=180,
+                    calculate_cost=False,
+                    page_extraction_llm=core_llm,
+                    initial_actions=[{"go_to_url": {"url": target_url}}],
+                )
+            except TypeError:
+                try:
+                    agent_local = Agent(
+                        task=role_task,
+                        llm=llm_local,
+                        use_vision=True,
+                        page_extraction_llm=core_llm,
+                        initial_actions=[{"go_to_url": {"url": target_url}}],
+                    )
+                except TypeError:
+                    agent_local = Agent(
+                        task=role_task,
+                        llm=llm_local,
+                        use_vision=True,
+                        initial_actions=[{"go_to_url": {"url": target_url}}],
+                    )
             history_local = await agent_local.run(max_steps=80)
             try:
                 if not hasattr(history_local, 'history') or len(history_local.history) == 0:
