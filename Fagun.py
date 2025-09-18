@@ -90,9 +90,56 @@ def _validate_api_key_quick(api_key: str) -> bool:
         # For network or transient errors, don't block startup here
         return True
 
+def _load_all_envs() -> None:
+    """Load environment from .env and config.env (if present)."""
+    try:
+        load_dotenv(dotenv_path=Path(".env"), override=False)
+    except Exception:
+        pass
+    # Also load config.env if exists (override only missing keys)
+    try:
+        if Path("config.env").exists():
+            load_dotenv(dotenv_path=Path("config.env"), override=False)
+    except Exception:
+        pass
+    # Normalize common API keys to avoid trailing spaces/characters from env files
+    for k in (
+        "GOOGLE_API_KEY",
+        "GEMINI_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "AZURE_OPENAI_API_KEY",
+        "GROQ_API_KEY",
+        "OPENROUTER_API_KEY",
+        "NOVITA_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "ALIBABA_CLOUD",
+    ):
+        try:
+            _normalize_env_key(k)
+        except Exception:
+            pass
+
+def _normalize_env_key(name: str) -> None:
+    val = os.getenv(name)
+    if val is None:
+        return
+    # Trim whitespace and stray characters
+    cleaned = val.strip().strip("'\"")
+    # Remove accidental trailing characters like lone 'v' at end of key line
+    if name in {"GOOGLE_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "OPENAI_API_KEY"} and len(cleaned) > 4:
+        # no-op beyond trimming
+        pass
+    if cleaned != val:
+        os.environ[name] = cleaned
+
 def ensure_google_key() -> str:
     """Ensure GOOGLE_API_KEY exists; prompt and persist to .env if missing or invalid (best-effort)."""
-    load_dotenv()
+    _load_all_envs()
+    api_key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+    # Normalize any newline/space artifacts
+    for k in ("GOOGLE_API_KEY", "GEMINI_API_KEY"):
+        _normalize_env_key(k)
     api_key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
     if not api_key or api_key.lower() in {"your_api_key_here", "changeme"}:
         print("Google (Gemini) API key not found.")
@@ -107,7 +154,7 @@ def ensure_google_key() -> str:
     return api_key
 
 def ensure_env_vars_for_provider(provider: str) -> bool:
-    load_dotenv()
+    _load_all_envs()
     need: list[tuple[str, str]] = []
     if provider == "google":
         if (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")):
@@ -1046,12 +1093,14 @@ async def main():
     parser.add_argument("--broken-limit", type=int, default=100, help="Max number of URLs to quick-check for broken links in report (default: 100)")
     parser.add_argument("--max-pages", type=int, default=30, help="Max same-origin pages to crawl (breadth-first) per run (default: 30)")
     parser.add_argument("--max-depth", type=int, default=3, help="Max link depth to traverse (default: 3)")
+    parser.add_argument("--provider", help="LLM provider key to use (e.g., google, openai, anthropic, groq, ...)")
     args = parser.parse_args()
 
     # Ensure dependencies
     ensure_dependencies()
 
-    # Show banner then model/provider selection
+    # Load env files and show banner then model/provider selection
+    _load_all_envs()
     print_banner()
     providers = [
         ("google", "Gemini (Google)"),
@@ -1067,19 +1116,23 @@ async def main():
         ("qwen", "Qwen (DashScope)"),
     ]
 
-    # Ask user which provider to use
-    print(f"\n{Fore.CYAN}{Style.BRIGHT}Select AI model provider:{Style.RESET_ALL}")
-    for idx, (_, label) in enumerate(providers, 1):
-        print(f"{Fore.YELLOW}{idx}{Style.RESET_ALL}. {label}")
-    selected_idx = 1
-    try:
-        raw_sel = input(f"{Fore.GREEN}➤ Enter your choice (1-{len(providers)}){Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(default=1){Style.RESET_ALL}: ").strip()
-        if raw_sel:
-            selected_idx = max(1, min(len(providers), int(raw_sel)))
-    except (EOFError, KeyboardInterrupt):
-        print("\n🛑 Cancelled by user.")
-        return
-    provider_key = providers[selected_idx - 1][0]
+    # Resolve provider: CLI --provider > env FAGUN_PROVIDER > interactive selection
+    provider_key = (args.provider or os.getenv("FAGUN_PROVIDER") or "").strip().lower()
+    if provider_key and provider_key not in [p for p, _ in providers]:
+        provider_key = "google"
+    if not provider_key:
+        print(f"\n{Fore.CYAN}{Style.BRIGHT}Select AI model provider:{Style.RESET_ALL}")
+        for idx, (_, label) in enumerate(providers, 1):
+            print(f"{Fore.YELLOW}{idx}{Style.RESET_ALL}. {label}")
+        selected_idx = 1
+        try:
+            raw_sel = input(f"{Fore.GREEN}➤ Enter your choice (1-{len(providers)}){Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(default=1){Style.RESET_ALL}: ").strip()
+            if raw_sel:
+                selected_idx = max(1, min(len(providers), int(raw_sel)))
+        except (EOFError, KeyboardInterrupt):
+            print("\n🛑 Cancelled by user.")
+            return
+        provider_key = providers[selected_idx - 1][0]
 
     # Ensure credentials for selected provider; if missing, prompt to add
     if not ensure_env_vars_for_provider(provider_key):
