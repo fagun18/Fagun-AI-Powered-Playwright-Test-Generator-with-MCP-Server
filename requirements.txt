@@ -7,3 +7,4 @@ requests
 language-tool-python
 aiohttp
 pydantic
+mcp

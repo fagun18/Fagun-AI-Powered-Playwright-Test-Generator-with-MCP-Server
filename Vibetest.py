@@ -5,16 +5,16 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
+from typing import List
 from browser_use import Agent
-
-# Try to reuse helpers from Fagun
 try:
-	from Fagun import (
-		generate_html_report,
-		generate_combined_html_report,
-		build_llm,
-		ensure_google_key,
-    )
+    # MCP server primitives
+    from mcp.server.fastmcp import FastMCP, Tool
+except Exception:
+    FastMCP = None  # type: ignore
+    Tool = None  # type: ignore
+
+
 def _load_all_envs() -> None:
     try:
         load_dotenv(dotenv_path=Path(".env"), override=False)
@@ -26,11 +26,20 @@ def _load_all_envs() -> None:
     except Exception:
         pass
 
+
+# Try to reuse helpers from Fagun
+try:
+    from Fagun import (
+        generate_html_report,
+        generate_combined_html_report,
+        build_llm,
+        ensure_google_key,
+    )
 except Exception:
-	generate_html_report = None  # type: ignore
-	generate_combined_html_report = None  # type: ignore
-	build_llm = None  # type: ignore
-	ensure_google_key = None  # type: ignore
+    generate_html_report = None  # type: ignore
+    generate_combined_html_report = None  # type: ignore
+    build_llm = None  # type: ignore
+    ensure_google_key = None  # type: ignore
 
 
 def build_task(url: str) -> str:
@@ -194,6 +203,52 @@ async def main():
 
 
 if __name__ == "__main__":
-	asyncio.run(main())
+    # If launched as MCP server via env MCP=1, start server instead of CLI app
+    if os.getenv("MCP", "0") == "1" and FastMCP is not None:
+        app = FastMCP("vibetest")
+
+        @app.tool()
+        async def vibetest_run(url: str, agents: int = 3, max_steps: int = 40, provider: str = "google") -> dict:
+            """Run multi-agent Browser-Use test and return report path(s).
+            - url: Target site (https/http or localhost:port)
+            - agents: Number of agents (default 3)
+            - max_steps: Max steps per agent (default 40)
+            - provider: LLM provider key (default "google")
+            """
+            _load_all_envs()
+            results = await asyncio.gather(
+                *[
+                    run_single_agent(i + 1, url, provider, max_steps=max_steps)
+                    for i in range(max(1, int(agents)))
+                ]
+            )
+            reports: List[str] = []
+            histories: List[Any] = []
+            for r in results:
+                if isinstance(r, Exception):
+                    continue
+                histories.append(r.get("history"))
+                if r.get("report"):
+                    reports.append(r["report"])
+            combined = None
+            if generate_combined_html_report is not None and histories:
+                combined = generate_combined_html_report(
+                    histories,
+                    meta={
+                        "agents": len(histories),
+                        "target_url": url,
+                        "task": "Vibetest MCP run",
+                        "roles": [f"Agent #{i+1}" for i in range(len(histories))],
+                        "headless": True,
+                        "broken_limit": 100,
+                        "max_pages": 0,
+                        "max_depth": 0,
+                    },
+                )
+            return {"reports": reports, "combined": combined}
+
+        app.run()
+    else:
+        asyncio.run(main())
 
 

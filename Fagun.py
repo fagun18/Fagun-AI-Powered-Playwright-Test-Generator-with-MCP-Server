@@ -301,9 +301,16 @@ def build_llm(provider: str):
     _model = "gemini-2.0-flash"
     return LLMAdapter(ChatGoogleGenerativeAI(model=_model, temperature=0.0, google_api_key=(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "")), provider="google", model=_model)
 
+def _supports_wide_unicode() -> bool:
+    try:
+        enc = getattr(sys.stdout, "encoding", "") or ""
+        return "utf" in enc.lower()
+    except Exception:
+        return False
+
 def print_banner():
-	colorama_init(autoreset=True)
-	ascii_banner = (
+    colorama_init(autoreset=True)
+    ascii_banner = (
 		"    ______                           ___         __                        __           __   ______          __  _                ___                    __ \n"
 		"   / ____/___ _____ ___  ______     /   | __  __/ /_____  ____ ___  ____ _/ /____  ____/ /  /_  __/__  _____/ /_(_)___  ____ _   /   | ____ ____  ____  / /_\n"
 		"  / /_  / __ `/ __ `/ / / / __ \\   / /| |/ / / / __/ __ \\/ __ `__ \\/ __ `/ __/ _ \\/ __  /    / / / _ \\/ ___/ __/ / __ \\/ __ `/  / /| |/ __ `/ _ \\/ __ \\/ __/\n"
@@ -311,15 +318,15 @@ def print_banner():
 		"/_/    \\__,_/\\__, /\\__,_/_/ /_/  /_/  |_\\__,_/\\__/\\____/_/ /_/ /_/\\__,_/\\__/\\___/\\__,_/    /_/  \\___/____/\\__/_/_/ /_/\\__, /  /_/  |_\\__, /\\___/_/ /_/\\__/  \n"
 		"            /____/                                                                                                   /____/         /____/                  \n"
 	)
-	print(Fore.CYAN + ascii_banner + Style.RESET_ALL)
-	title = f"{Fore.CYAN}{Style.BRIGHT}Fagun Automated Testing Agent{Style.RESET_ALL}"
-	subtitle = f"{Fore.MAGENTA}Build by Mejbaur Bahar Fagun(@https://www.linkedin.com/in/mejbaur/)\nSoftware Engineer in Test{Style.RESET_ALL}"
-	bar = f"{Fore.BLUE}{'=' * 60}{Style.RESET_ALL}"
-	robot = f"{Fore.YELLOW}🤖{Style.RESET_ALL}"
-	print(bar)
-	print(f"{robot}  {title}")
-	print(f"   {subtitle}")
-	print(bar)
+    print(Fore.CYAN + ascii_banner + Style.RESET_ALL)
+    title = f"{Fore.CYAN}{Style.BRIGHT}Fagun Automated Testing Agent{Style.RESET_ALL}"
+    subtitle = f"{Fore.MAGENTA}Build by Mejbaur Bahar Fagun(@https://www.linkedin.com/in/mejbaur/)\nSoftware Engineer in Test{Style.RESET_ALL}"
+    bar = f"{Fore.BLUE}{'=' * 60}{Style.RESET_ALL}"
+    robot = "[Agent]" if not _supports_wide_unicode() else f"{Fore.YELLOW}🤖{Style.RESET_ALL}"
+    print(bar)
+    print(f"{robot}  {title}")
+    print(f"   {subtitle}")
+    print(bar)
 
 def safe_get(attr_getter, default=None):
     try:
@@ -640,6 +647,7 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 			"go_to_url": "Open URL",
 			"wait": "Wait",
 			"extract_structured_data": "Extract data",
+			"extract_content": "Extract content",
 			"send_keys": "Send keys",
 		}
 		display_name = friendly.get(name, name)
@@ -662,6 +670,9 @@ def generate_combined_html_report(histories: List[Any], meta: Dict[str, Any]) ->
 		elif name == "input_text":
 			txt = pp.get("text")
 			desc = f"Type '{str(txt)[:30]}...'" if txt else "Type into field"
+		elif name == "extract_content":
+			g = pp.get("goal") if isinstance(pp, dict) else None
+			desc = f"Extract content – {g}" if g else "Extract content"
 		elif name == "extract_structured_data":
 			q = pp.get("query") if isinstance(pp, dict) else None
 			desc = f"Extract data ({q})" if q else "Extract data"
@@ -908,7 +919,7 @@ def _collect_element_labels(all_action_history: List[Any], all_actions: List[Any
 		idx = item.get('index')
 		if idx is None:
 			return None
-		text = (item.get('text') or item.get('innerText') or item.get('title') or item.get('aria_label') or '').strip()
+		text = (item.get('text') or item.get('innerText') or item.get('title') or item.get('aria_label') or item.get('name') or '').strip()
 		role = (item.get('role') or item.get('tag') or '').lower().strip()
 		if text:
 			label = text
@@ -937,7 +948,7 @@ def get_user_input(show_banner: bool = True):
     
     # Get target URL
     try:
-        target_url = input(f"{Fore.GREEN}➤ Enter the target URL to test{Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(press Enter for default){Style.RESET_ALL}: ").strip()
+        target_url = input(f"{Fore.GREEN}➤ Enter the target URL to test{Style.RESET_ALL} {Fore.WHITE}{Style.DIM}(press Enter for default){Style.RESET_ALL}: ").strip()
     except EOFError:
         target_url = ""
     except KeyboardInterrupt:
@@ -952,7 +963,7 @@ def get_user_input(show_banner: bool = True):
         print(f"{Fore.YELLOW}1{Style.RESET_ALL}. Default")
         print(f"{Fore.YELLOW}2{Style.RESET_ALL}. Custom")
         try:
-            test_choice = input(f"{Fore.GREEN}➤ Enter your choice (1-2){Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(default=1){Style.RESET_ALL}: ").strip()
+            test_choice = input(f"{Fore.GREEN}➤ Enter your choice (1-2){Style.RESET_ALL} {Fore.WHITE}{Style.DIM}(default=1){Style.RESET_ALL}: ").strip()
         except EOFError:
             test_choice = "1"
         except KeyboardInterrupt:
@@ -973,7 +984,7 @@ def get_user_input(show_banner: bool = True):
     # Get custom prompt if needed
     custom_prompt = ""
     if test_choice == "2":
-        print(f"\n{Fore.CYAN}{Style.BRIGHT}Enter your custom test prompt{Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(press Enter to submit){Style.RESET_ALL}:")
+        print(f"\n{Fore.CYAN}{Style.BRIGHT}Enter your custom test prompt{Style.RESET_ALL} {Fore.WHITE}{Style.DIM}(press Enter to submit){Style.RESET_ALL}:")
         print(f"{Fore.MAGENTA}(Tip: You can still paste multi-line text; we'll take the first line.){Style.RESET_ALL}")
         try:
             first_line = input("> ")
@@ -991,7 +1002,7 @@ def get_user_input(show_banner: bool = True):
 def _prompt_int_in_range(label: str, default_value: int, min_value: int, max_value: int) -> int:
     while True:
         try:
-            raw = input(f"{Fore.GREEN}➤ {label}{Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(default={default_value}, min={min_value}, max={max_value}){Style.RESET_ALL}: ").strip()
+            raw = input(f"{Fore.GREEN}➤ {label}{Style.RESET_ALL} {Fore.WHITE}{Style.DIM}(default={default_value}, min={min_value}, max={max_value}){Style.RESET_ALL}: ").strip()
         except EOFError:
             raw = ""
         except KeyboardInterrupt:
@@ -1050,11 +1061,13 @@ CRAWLING RULES (Breadth-First):
 - Crawl same-origin links only; never leave {urlparse(target_url).netloc}.
 - Maintain a visited set; avoid revisiting URLs.
 - Use a breadth-first strategy with queue behavior.
+- Prefer opening 3–5 new same-origin links per page before going deeper.
 - Stop when you reach either max pages ({max_pages}) or max depth ({max_depth}).
 - For each visited page: capture a screenshot, extract title and primary headings, and quickly scan for obvious CTAs and forms.
 
 LINK DISCOVERY:
 - Extract all <a> links with href that are same-origin, normalize relative URLs to absolute.
+- Prefer visible, interactable links (skip hidden/disabled).
 - De-duplicate and enqueue while respecting depth and page caps.
 
 OUTPUT FILES (use write_file action):
@@ -1077,7 +1090,7 @@ def ensure_dependencies():
 			pass
 	# Best-effort browser install
 	try:
-		subprocess.run(["playwright", "install", "chromium"], check=False)
+		subprocess.run(["playwright", "install", "chromium", "--with-deps"], check=False)
 	except Exception:
 		pass
 
@@ -1093,6 +1106,7 @@ async def main():
     parser.add_argument("--broken-limit", type=int, default=100, help="Max number of URLs to quick-check for broken links in report (default: 100)")
     parser.add_argument("--max-pages", type=int, default=30, help="Max same-origin pages to crawl (breadth-first) per run (default: 30)")
     parser.add_argument("--max-depth", type=int, default=3, help="Max link depth to traverse (default: 3)")
+    parser.add_argument("--no-open", action="store_true", help="Do not auto-open the HTML report after completion")
     parser.add_argument("--provider", help="LLM provider key to use (e.g., google, openai, anthropic, groq, ...)")
     args = parser.parse_args()
 
@@ -1121,12 +1135,12 @@ async def main():
     if provider_key and provider_key not in [p for p, _ in providers]:
         provider_key = "google"
     if not provider_key:
-        print(f"\n{Fore.CYAN}{Style.BRIGHT}Select AI model provider:{Style.RESET_ALL}")
-        for idx, (_, label) in enumerate(providers, 1):
-            print(f"{Fore.YELLOW}{idx}{Style.RESET_ALL}. {label}")
+    print(f"\n{Fore.CYAN}{Style.BRIGHT}Select AI model provider:{Style.RESET_ALL}")
+    for idx, (_, label) in enumerate(providers, 1):
+        print(f"{Fore.YELLOW}{idx}{Style.RESET_ALL}. {label}")
         selected_idx = 1
         try:
-            raw_sel = input(f"{Fore.GREEN}➤ Enter your choice (1-{len(providers)}){Style.RESET_ALL} {Fore.BLACK}{Style.DIM}(default=1){Style.RESET_ALL}: ").strip()
+        raw_sel = input(f"{Fore.GREEN}➤ Enter your choice (1-{len(providers)}){Style.RESET_ALL} {Fore.WHITE}{Style.DIM}(default=1){Style.RESET_ALL}: ").strip()
             if raw_sel:
                 selected_idx = max(1, min(len(providers), int(raw_sel)))
         except (EOFError, KeyboardInterrupt):
@@ -1384,6 +1398,31 @@ async def main():
             },
         )
         print(f"📁 Combined report saved to: {combined_report}")
+        # Print concise console summary
+        try:
+            total_urls = 0
+            total_errors = 0
+            seen = set()
+            for h in histories:
+                for u in (safe_get(lambda: h.urls(), []) or []):
+                    if u not in seen:
+                        seen.add(u)
+            total_urls = len(seen)
+            for h in histories:
+                total_errors += len([e for e in (safe_get(lambda: h.errors(), []) or []) if e])
+            print(f"🔎 Summary: URLs={total_urls}, Errors={total_errors}, Agents={len(histories)}")
+        except Exception:
+            pass
+        # Auto-open report unless disabled
+        try:
+            if not bool(args.no_open):
+                import webbrowser, platform
+                if platform.system().lower().startswith("win"):
+                    os.startfile(combined_report)  # type: ignore[attr-defined]
+                else:
+                    webbrowser.open_new_tab(combined_report)
+        except Exception:
+            pass
         
     except Exception as e:
         msg = str(e)
