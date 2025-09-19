@@ -1,0 +1,10 @@
+# Google Gemini API Key Template
+# Get your API key from: https://makersuite.google.com/app/apikey
+
+GEMINI_API_KEY=your_api_key_here
+
+# Instructions:
+# 1. Copy this file to .env
+# 2. Replace 'your_api_key_here' with your actual Google Gemini API key
+# 3. Never commit the .env file with real API keys to version control
+# 4. Keep your .env file secure and don't share it publicly
