@@ -1,0 +1,6 @@
+browser-use
+langchain-google-genai
+python-dotenv
+asyncio
+requests
+pathlib
