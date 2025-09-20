@@ -8,8 +8,503 @@ from pathlib import Path
 from dotenv import load_dotenv
 from browser_use import Agent
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
+from langchain_core.language_models import BaseChatModel
+import requests
 
 load_dotenv()
+
+# Removed patch function - using direct LLM instances
+
+class APIManager:
+    """Manages dual API keys with automatic fallback"""
+    
+    def __init__(self):
+        self.gemini_key = os.getenv("GEMINI_API_KEY")
+        self.grok_key = os.getenv("GROK_API_KEY")
+        self.current_provider = "gemini"  # Start with Gemini
+        self.quota_exceeded = False
+        
+    def get_current_llm(self):
+        """Get the current LLM instance based on available API keys"""
+        if self.current_provider == "gemini" and self.gemini_key:
+            try:
+                llm = ChatGoogleGenerativeAI(
+                    model="gemini-1.5-flash",
+                    temperature=0.0,
+                    google_api_key=self.gemini_key
+                )
+                return llm
+            except Exception as e:
+                print(f"⚠️ Gemini API error: {e}")
+                self.switch_to_grok()
+                return self.get_current_llm()
+        
+        elif self.current_provider == "grok" and self.grok_key:
+            try:
+                llm = ChatOpenAI(
+                    model="grok-beta",
+                    temperature=0.0,
+                    api_key=self.grok_key,
+                    base_url="https://api.x.ai/v1"
+                )
+                return llm
+            except Exception as e:
+                print(f"⚠️ Grok API error: {e}")
+                self.switch_to_gemini()
+                return self.get_current_llm()
+        
+        else:
+            raise Exception("No valid API keys available. Please check your .env file.")
+    
+    def switch_to_grok(self):
+        """Switch to Grok API"""
+        if self.grok_key:
+            self.current_provider = "grok"
+            print("🔄 Switched to Grok API")
+        else:
+            raise Exception("Grok API key not available")
+    
+    def switch_to_gemini(self):
+        """Switch to Gemini API"""
+        if self.gemini_key:
+            self.current_provider = "gemini"
+            print("🔄 Switched to Gemini API")
+        else:
+            raise Exception("Gemini API key not available")
+    
+    def handle_quota_error(self, error_message):
+        """Handle quota exceeded errors by switching API"""
+        error_lower = str(error_message).lower()
+        quota_indicators = ["quota", "limit", "exceeded", "rate limit", "too many requests", "429"]
+        
+        if any(indicator in error_lower for indicator in quota_indicators):
+            print(f"⚠️ Quota exceeded for {self.current_provider.upper()} API")
+            if self.current_provider == "gemini" and self.grok_key:
+                print("🔄 Switching to Grok API...")
+                self.switch_to_grok()
+                return True
+            elif self.current_provider == "grok" and self.gemini_key:
+                print("🔄 Switching to Gemini API...")
+                self.switch_to_gemini()
+                return True
+            else:
+                print("❌ All API quotas exceeded. Please try again later.")
+                print("💡 Consider upgrading your API plan or waiting for quota reset.")
+                return False
+        return False
+
+def show_main_menu():
+    """Display the main menu and handle user selection"""
+    while True:
+        print("\n" + "=" * 60)
+        print("🤖 FAGUN AUTOMATED TESTING AGENT - ADVANCED MENU")
+        print("=" * 60)
+        print("1. 🚀 Start Testing")
+        print("2. 🔧 Install/Update Required Tools")
+        print("3. 📊 View Test Reports")
+        print("4. ⚙️  Update Tool")
+        print("5. ❓ Help & Documentation")
+        print("6. 🚪 Exit")
+        print("=" * 60)
+        
+        try:
+            choice = input("Select an option (1-6): ").strip()
+            
+            if choice == "1":
+                return get_testing_prompt()
+            elif choice == "2":
+                install_required_tools()
+            elif choice == "3":
+                view_test_reports()
+            elif choice == "4":
+                update_tool()
+            elif choice == "5":
+                show_help()
+            elif choice == "6":
+                print("👋 Thank you for using Fagun Automated Testing Agent!")
+                sys.exit(0)
+            else:
+                print("❌ Invalid choice. Please select 1-6.")
+        except (EOFError, KeyboardInterrupt):
+            print("\n👋 Goodbye!")
+            sys.exit(0)
+
+def check_api_keys():
+    """Check if API keys are available and prompt user to add them if missing"""
+    print("\n🔑 CHECKING API KEYS")
+    print("=" * 30)
+    
+    # Load environment variables
+    load_dotenv()
+    
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    grok_key = os.getenv("GROK_API_KEY")
+    
+    print(f"📋 API Key Status:")
+    print(f"   Gemini API: {'✅ Available' if gemini_key else '❌ Not found'}")
+    print(f"   Grok API: {'✅ Available' if grok_key else '❌ Not found'}")
+    
+    if not gemini_key and not grok_key:
+        print("\n❌ No API keys found!")
+        print("You need at least one API key to use this tool.")
+        print("\n🔧 SETUP INSTRUCTIONS:")
+        print("1. Create a .env file in the project directory")
+        print("2. Add your API keys:")
+        print("   GEMINI_API_KEY=your_gemini_api_key_here")
+        print("   GROK_API_KEY=your_grok_api_key_here")
+        print("\n📝 API Key Sources:")
+        print("   • Gemini: https://makersuite.google.com/app/apikey")
+        print("   • Grok: https://console.x.ai/")
+        
+        choice = input("\nWould you like to add API keys now? (y/n): ").strip().lower()
+        if choice in ['y', 'yes']:
+            add_api_keys_interactive()
+        else:
+            print("❌ Cannot proceed without API keys.")
+            return False
+    elif not gemini_key or not grok_key:
+        print(f"\n⚠️ Only one API key available ({'Gemini' if gemini_key else 'Grok'})")
+        print("💡 For better reliability, consider adding both API keys.")
+        
+        choice = input("Would you like to add the missing API key? (y/n): ").strip().lower()
+        if choice in ['y', 'yes']:
+            add_api_keys_interactive()
+    
+    print("✅ API keys check completed!")
+    return True
+
+def add_api_keys_interactive():
+    """Interactive API key setup"""
+    print("\n🔧 ADDING API KEYS")
+    print("=" * 25)
+    
+    # Check if .env file exists
+    env_file = ".env"
+    if not os.path.exists(env_file):
+        print("📝 Creating .env file...")
+        with open(env_file, 'w') as f:
+            f.write("# API Keys Configuration\n")
+    
+    # Read existing .env content
+    existing_content = ""
+    if os.path.exists(env_file):
+        with open(env_file, 'r') as f:
+            existing_content = f.read()
+    
+    # Check what keys are missing
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    grok_key = os.getenv("GROK_API_KEY")
+    
+    new_content = existing_content
+    
+    if not gemini_key:
+        print("\n🔑 Gemini API Key Setup:")
+        print("Get your key from: https://makersuite.google.com/app/apikey")
+        gemini_input = input("Enter your Gemini API key (or press Enter to skip): ").strip()
+        if gemini_input:
+            if "GEMINI_API_KEY=" not in new_content:
+                new_content += f"\nGEMINI_API_KEY={gemini_input}\n"
+            else:
+                import re
+                new_content = re.sub(
+                    r'GEMINI_API_KEY=.*',
+                    f"GEMINI_API_KEY={gemini_input}",
+                    new_content
+                )
+    
+    if not grok_key:
+        print("\n🔑 Grok API Key Setup:")
+        print("Get your key from: https://console.x.ai/")
+        grok_input = input("Enter your Grok API key (or press Enter to skip): ").strip()
+        if grok_input:
+            if "GROK_API_KEY=" not in new_content:
+                new_content += f"\nGROK_API_KEY={grok_input}\n"
+            else:
+                import re
+                new_content = re.sub(
+                    r'GROK_API_KEY=.*',
+                    f"GROK_API_KEY={grok_input}",
+                    new_content
+                )
+    
+    # Write updated .env file
+    with open(env_file, 'w') as f:
+        f.write(new_content)
+    
+    print("✅ API keys saved to .env file!")
+    print("🔄 Reloading environment variables...")
+    
+    # Reload environment variables
+    load_dotenv(override=True)
+
+def get_testing_prompt():
+    """Get testing prompt from user input"""
+    print("\n🚀 START TESTING")
+    print("=" * 40)
+    
+    # First check API keys
+    if not check_api_keys():
+        return None
+    
+    print("\nEnter your testing prompt:")
+    print("💡 Examples:")
+    print("   - 'visit https://fagun.sqatesting.com and test full website each and everything'")
+    print("   - 'test https://example.com for performance, security, and functionality'")
+    print("   - 'comprehensive testing of https://mysite.com with detailed report'")
+    print("=" * 40)
+    
+    try:
+        user_input = input("Your prompt: ").strip()
+        if user_input:
+            return user_input
+        else:
+            print("❌ No prompt provided. Returning to main menu.")
+            return None
+    except (EOFError, KeyboardInterrupt):
+        print("\n⚠️  Input interrupted. Returning to main menu.")
+        return None
+
+def install_required_tools():
+    """Install or update required tools and dependencies"""
+    print("\n🔧 INSTALLING/UPDATING REQUIRED TOOLS")
+    print("=" * 50)
+    
+    try:
+        import subprocess
+        import sys
+        
+        print("📦 Installing/updating Python packages...")
+        
+        # Install required packages
+        packages = [
+            "browser-use>=0.1.0",
+            "langchain>=0.1.0", 
+            "langchain-google-genai>=1.0.0",
+            "langchain-openai>=0.1.0",
+            "python-dotenv>=1.0.0",
+            "requests>=2.31.0"
+        ]
+        
+        for package in packages:
+            print(f"Installing {package}...")
+            result = subprocess.run([sys.executable, "-m", "pip", "install", package], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"✅ {package} installed successfully")
+            else:
+                print(f"❌ Failed to install {package}: {result.stderr}")
+        
+        print("\n✅ Installation completed!")
+        print("💡 Make sure to set up your API keys in the .env file")
+        
+    except Exception as e:
+        print(f"❌ Error during installation: {e}")
+    
+    input("\nPress Enter to return to main menu...")
+
+def view_test_reports():
+    """View available test reports"""
+    print("\n📊 VIEW TEST REPORTS")
+    print("=" * 30)
+    
+    try:
+        import glob
+        import os
+        
+        # Find all HTML report files
+        report_files = glob.glob("test_report_*.html")
+        
+        if not report_files:
+            print("📭 No test reports found.")
+            print("💡 Run some tests first to generate reports.")
+        else:
+            print(f"📋 Found {len(report_files)} test report(s):")
+            print()
+            
+            for i, report in enumerate(report_files, 1):
+                # Get file modification time
+                mod_time = os.path.getmtime(report)
+                import datetime
+                mod_date = datetime.datetime.fromtimestamp(mod_time).strftime("%Y-%m-%d %H:%M:%S")
+                
+                print(f"{i}. {report}")
+                print(f"   Generated: {mod_date}")
+                print()
+            
+            try:
+                choice = input("Enter report number to open (or press Enter to return): ").strip()
+                if choice.isdigit() and 1 <= int(choice) <= len(report_files):
+                    report_file = report_files[int(choice) - 1]
+                    print(f"🌐 Opening {report_file} in your default browser...")
+                    
+                    # Open in default browser
+                    import webbrowser
+                    webbrowser.open(f"file://{os.path.abspath(report_file)}")
+                elif choice:
+                    print("❌ Invalid choice.")
+            except (EOFError, KeyboardInterrupt):
+                pass
+                
+    except Exception as e:
+        print(f"❌ Error viewing reports: {e}")
+    
+    input("\nPress Enter to return to main menu...")
+
+def update_tool():
+    """Update the tool to latest version"""
+    print("\n⚙️ UPDATE TOOL")
+    print("=" * 20)
+    
+    try:
+        import subprocess
+        import sys
+        
+        print("🔄 Checking for updates...")
+        
+        # Update browser-use
+        print("Updating browser-use...")
+        result = subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "browser-use"], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✅ browser-use updated successfully")
+        else:
+            print(f"❌ Failed to update browser-use: {result.stderr}")
+        
+        # Update langchain packages
+        print("Updating LangChain packages...")
+        packages = ["langchain", "langchain-google-genai", "langchain-openai"]
+        for package in packages:
+            result = subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", package], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"✅ {package} updated successfully")
+            else:
+                print(f"❌ Failed to update {package}")
+        
+        print("\n✅ Update completed!")
+        
+    except Exception as e:
+        print(f"❌ Error during update: {e}")
+    
+    input("\nPress Enter to return to main menu...")
+
+def show_help():
+    """Show help and documentation"""
+    print("\n❓ HELP & DOCUMENTATION")
+    print("=" * 30)
+    
+    print("""
+🤖 FAGUN AUTOMATED TESTING AGENT
+
+📋 OVERVIEW:
+This tool provides AI-powered browser automation for comprehensive website testing.
+
+🚀 GETTING STARTED:
+1. Set up API keys in .env file:
+   - GEMINI_API_KEY=your_gemini_api_key_here
+   - GROK_API_KEY=your_grok_api_key_here
+
+2. Run tests with natural language prompts:
+   - "visit https://example.com and test everything"
+   - "test https://mysite.com for performance and security"
+
+📊 FEATURES:
+- Dual API support (Gemini + Grok with automatic fallback)
+- Comprehensive website testing
+- Detailed HTML reports
+- Cross-browser compatibility testing
+- Performance analysis
+- Security testing
+- Responsive design testing
+
+🔧 TROUBLESHOOTING:
+- Ensure Python 3.8+ is installed
+- Check internet connection
+- Verify API keys are valid
+- Update packages if errors occur
+
+📞 SUPPORT:
+- GitHub: https://github.com/fagun18/Fagun-AI-Powered-Playwright-Test-Generator-with-MCP-Server
+- Issues: Report bugs on GitHub
+- Documentation: Check README.md
+
+💡 TIPS:
+- Use specific, clear prompts for better results
+- Test one website at a time for detailed analysis
+- Check generated reports for comprehensive findings
+""")
+    
+    input("\nPress Enter to return to main menu...")
+
+def update_tool():
+    """Update the tool from GitHub repository"""
+    print("\n⚙️  UPDATING TOOL FROM GITHUB")
+    print("=" * 40)
+    
+    try:
+        import subprocess
+        import os
+        
+        # Check if git is available
+        try:
+            subprocess.run(["git", "--version"], check=True, capture_output=True)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print("❌ Git is not installed or not in PATH")
+            print("Please install Git first: https://git-scm.com/downloads")
+            input("\nPress Enter to return to main menu...")
+            return
+        
+        print("🔄 Checking for updates...")
+        
+        # Check if this is a git repository
+        if not os.path.exists(".git"):
+            print("❌ This is not a git repository")
+            print("To update from GitHub, you need to clone the repository first:")
+            print("git clone https://github.com/fagun18/Fagun-AI-Powered-Playwright-Test-Generator-with-MCP-Server")
+            input("\nPress Enter to return to main menu...")
+            return
+        
+        # Fetch latest changes
+        print("📥 Fetching latest changes from GitHub...")
+        result = subprocess.run(["git", "fetch", "origin"], capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            print(f"❌ Failed to fetch updates: {result.stderr}")
+            input("\nPress Enter to return to main menu...")
+            return
+        
+        # Check for updates
+        result = subprocess.run(["git", "status", "-uno"], capture_output=True, text=True)
+        
+        if "Your branch is up to date" in result.stdout:
+            print("✅ Tool is already up to date!")
+            print("No new updates available.")
+        else:
+            print("🔄 Updates available! Updating...")
+            
+            # Pull latest changes
+            result = subprocess.run(["git", "pull", "origin", "main"], capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                print("✅ Tool updated successfully!")
+                print("\n📦 Updating dependencies...")
+                
+                # Update requirements
+                subprocess.run(["pip", "install", "-r", "requirements.txt", "--upgrade"], 
+                             capture_output=True, text=True)
+                
+                print("✅ Dependencies updated!")
+                print("\n💡 Restart the tool to use the latest features.")
+            else:
+                print(f"❌ Failed to update: {result.stderr}")
+        
+    except Exception as e:
+        print(f"❌ Error during update: {str(e)}")
+        print("Please check your internet connection and try again.")
+    
+    print("\n" + "=" * 40)
+    input("\nPress Enter to return to main menu...")
 
 def get_user_prompt():
     """Get testing prompt from user input or command line arguments"""
@@ -17,27 +512,8 @@ def get_user_prompt():
     if len(sys.argv) > 1:
         return " ".join(sys.argv[1:])
     
-    print("🚀 Advanced Browser Automation Testing Agent")
-    print("=" * 50)
-    print("Enter your testing prompt:")
-    print("💡 Examples:")
-    print("   - 'visit https://fagun.sqatesting.com and test full website each and everything'")
-    print("   - 'test https://example.com for performance, security, and functionality'")
-    print("   - 'comprehensive testing of https://mysite.com with detailed report'")
-    print("💡 Or run: python Fagun.py 'your prompt here'")
-    print("=" * 50)
-    
-    try:
-        user_input = input().strip()
-        if user_input:
-            return user_input
-        else:
-            print("❌ No prompt provided. Please provide a testing prompt.")
-            print("Example: python Fagun.py 'visit https://example.com and test everything'")
-            sys.exit(1)
-    except (EOFError, KeyboardInterrupt):
-        print("\n⚠️  Input interrupted. Exiting...")
-        sys.exit(1)
+    # Show main menu if no command line arguments
+    return show_main_menu()
 
 class TestReportGenerator:
     """Generate advanced HTML test reports with detailed step-by-step analysis"""
@@ -147,28 +623,193 @@ class TestReportGenerator:
     
     def parse_agent_history(self, agent_result):
         """Parse agent history to extract detailed steps and findings"""
+        step_counter = 1
+        
         if hasattr(agent_result, 'all_results'):
             for i, result in enumerate(agent_result.all_results):
                 if hasattr(result, 'extracted_content') and result.extracted_content:
-                    self._process_agent_action(i + 1, result)
+                    # Create individual test steps for each action
+                    self._create_individual_test_step(step_counter, result)
+                    step_counter += 1
                 elif hasattr(result, 'error') and result.error:
                     # Handle error cases
                     self.add_test_step(
-                        f"Step {i + 1}: Error Encountered",
+                        f"Step {step_counter}: Error Encountered",
                         "failed",
                         f"Error: {str(result.error)}",
                         step_type="error"
                     )
                     self.add_finding("errors", "Agent Error", str(result.error), "high")
+                    step_counter += 1
         else:
             # Fallback: try to extract information from the result object itself
             if hasattr(agent_result, 'extracted_content') and agent_result.extracted_content:
-                self._process_agent_action(1, agent_result)
+                self._create_individual_test_step(1, agent_result)
+        
+        # Handle the case where the result is a list of results
+        if hasattr(agent_result, '__iter__') and not isinstance(agent_result, str):
+            try:
+                for i, result in enumerate(agent_result):
+                    if hasattr(result, 'extracted_content') and result.extracted_content:
+                        self._create_individual_test_step(step_counter, result)
+                        step_counter += 1
+                    elif hasattr(result, 'error') and result.error:
+                        self.add_test_step(
+                            f"Step {step_counter}: Error Encountered",
+                            "failed",
+                            f"Error: {str(result.error)}",
+                            step_type="error"
+                        )
+                        self.add_finding("errors", "Agent Error", str(result.error), "high")
+                        step_counter += 1
+            except:
+                # If we can't iterate, just add a general step
+                self.add_test_step(
+                    "Agent Execution",
+                    "completed",
+                    f"Agent completed execution with result: {str(agent_result)[:200]}...",
+                    step_type="validation"
+                )
+    
+    def _create_individual_test_step(self, step_number, result):
+        """Create individual, readable test steps from agent actions"""
+        # Handle different content types
+        if hasattr(result, 'extracted_content'):
+            content = result.extracted_content
+            if callable(content):
+                content = str(content)
+            elif not isinstance(content, str):
+                content = str(content)
+        else:
+            content = str(result)
+        
+        # Determine action type and create readable step name
+        step_name, step_type, status = self._parse_action_content(content)
+        
+        # Create clean, readable details
+        details = self._create_readable_details(content, step_type)
+        
+        # Add the test step
+        self.add_test_step(
+            f"Step {step_number}: {step_name}",
+            status,
+            details,
+            step_type=step_type
+        )
+        
+        # Extract findings from the content
+        self._extract_findings_from_content(content)
+    
+    def _parse_action_content(self, content):
+        """Parse action content to determine step name, type, and status"""
+        content_lower = content.lower()
+        
+        # Navigation actions
+        if "navigated to" in content_lower or "go to" in content_lower:
+            return "Page Navigation", "navigation", "passed"
+        elif "opened" in content_lower and "tab" in content_lower:
+            return "Open New Tab", "navigation", "passed"
+        
+        # Interaction actions
+        elif "clicked" in content_lower:
+            element = self._extract_element_from_content(content)
+            return f"Click {element}", "interaction", "passed"
+        elif "waiting" in content_lower:
+            return "Wait Action", "interaction", "passed"
+        
+        # Content extraction
+        elif "extracted" in content_lower and "content" in content_lower:
+            return "Content Extraction", "validation", "passed"
+        elif "extracted from page" in content_lower:
+            return "Page Content Analysis", "validation", "passed"
+        
+        # Completion actions
+        elif "successfully" in content_lower and "completed" in content_lower:
+            return "Task Completion", "validation", "passed"
+        elif "done" in content_lower and "success" in content_lower:
+            return "Task Success", "validation", "passed"
+        
+        # Error actions
+        elif "error" in content_lower or "failed" in content_lower:
+            return "Error Encountered", "error", "failed"
+        
+        # Default
+        else:
+            return "Agent Action", "general", "passed"
+    
+    def _extract_element_from_content(self, content):
+        """Extract element information from click actions"""
+        if "button" in content.lower():
+            if "index" in content.lower():
+                # Extract index number
+                import re
+                index_match = re.search(r'index (\d+)', content)
+                if index_match:
+                    return f"Button (Index {index_match.group(1)})"
+            return "Button"
+        elif "link" in content.lower():
+            return "Link"
+        elif "element" in content.lower():
+            return "Element"
+        else:
+            return "Element"
+    
+    def _create_readable_details(self, content, step_type):
+        """Create readable details for test steps"""
+        if step_type == "navigation":
+            if "navigated to" in content.lower():
+                # Extract URL
+                import re
+                url_match = re.search(r'https?://[^\s]+', content)
+                if url_match:
+                    return f"Successfully navigated to: {url_match.group()}"
+                return f"Navigation completed: {content}"
+            return content
+        
+        elif step_type == "interaction":
+            if "clicked" in content.lower():
+                return f"User interaction completed: {content}"
+            elif "waiting" in content.lower():
+                # Extract wait time
+                import re
+                time_match = re.search(r'(\d+) seconds?', content)
+                if time_match:
+                    return f"Waited for {time_match.group(1)} seconds"
+                return content
+            return content
+        
+        elif step_type == "validation":
+            if "extracted" in content.lower():
+                return "Page content successfully extracted and analyzed"
+            elif "completed" in content.lower():
+                return "Task completed successfully"
+            return content
+        
+        elif step_type == "error":
+            return f"Error occurred: {content}"
+        
+        else:
+            return content
     
     def _process_agent_action(self, step_number, result):
         """Process individual agent action and extract details with enhanced error reporting"""
+        # Handle different content types
+        if hasattr(result, 'extracted_content'):
         content = result.extracted_content
+            if callable(content):
+                content = str(content)
+            elif not isinstance(content, str):
+                content = str(content)
+        else:
+            content = str(result)
+        
+        # Handle different result structures
+        if hasattr(result, 'success'):
         status = "passed" if result.success else "failed" if result.error else "warning"
+        elif hasattr(result, 'error') and result.error:
+            status = "failed"
+        else:
+            status = "passed"
         
         # Determine action type based on content
         action_type = "general"
@@ -211,6 +852,12 @@ class TestReportGenerator:
     
     def _extract_action_title(self, content):
         """Extract a concise title from agent action content"""
+        # Handle different content types
+        if callable(content):
+            return "Function Call"
+        if not isinstance(content, str):
+            content = str(content)
+        
         # Remove emojis and clean up the content
         import re
         clean_content = re.sub(r'[^\w\s]', '', content)
@@ -219,6 +866,12 @@ class TestReportGenerator:
     
     def _extract_findings_from_content(self, content):
         """Extract various types of findings from agent content with validation"""
+        # Handle different content types
+        if callable(content):
+            return  # Skip if content is a function
+        if not isinstance(content, str):
+            content = str(content)
+        
         content_lower = content.lower()
         
         # Check for demo/lorem ipsum content first
@@ -1968,12 +2621,20 @@ async def main():
     # Get prompt from user
     task_prompt = get_user_prompt()
     
-    # Check if API key is available
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        print("❌ Error: GEMINI_API_KEY not found in environment variables.")
-        print("Please create a .env file with your API key:")
-        print("GEMINI_API_KEY=your_api_key_here")
+    # If no prompt (user chose menu option other than testing), return
+    if not task_prompt:
+        return
+    
+    # Initialize API manager
+    api_manager = APIManager()
+    
+    # Check if at least one API key is available
+    if not api_manager.gemini_key and not api_manager.grok_key:
+        print("❌ Error: No API keys found in environment variables.")
+        print("Please create a .env file with at least one API key:")
+        print("GEMINI_API_KEY=your_gemini_api_key_here")
+        print("GROK_API_KEY=your_grok_api_key_here")
+        print("\n💡 You can also use option 2 in the main menu to install required tools.")
         return
 
     # Initialize test report generator
@@ -1995,17 +2656,12 @@ async def main():
             "passed",
             "Generated detailed test plan based on requirements:\n" + "\n".join(test_plan),
             step_type="validation"
-        )
-    
-    google_llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
-        temperature=0.0,
-        google_api_key=api_key
     )
 
     try:
         print(f"🚀 Starting advanced browser automation...")
         print(f"📋 Task: {task_prompt}")
+        print(f"🤖 Using {api_manager.current_provider.upper()} API")
         print("⏳ This may take a few minutes...")
         print("=" * 60)
         
@@ -2013,26 +2669,54 @@ async def main():
         report_generator.add_test_step(
             "Test Initialization",
             "passed",
-            f"Browser automation agent initialized successfully. Task: {task_prompt}"
+            f"Browser automation agent initialized successfully. Task: {task_prompt}. Using {api_manager.current_provider.upper()} API."
         )
+        
+        # Get current LLM
+        current_llm = api_manager.get_current_llm()
         
         # Create agent
         agent = Agent(
             task=task_prompt,
-            llm=google_llm,
+            llm=current_llm,
         )
         
-        # Run the automation
+        # Run the automation with retry logic
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
         result = await agent.run()
+                break
+            except Exception as e:
+                if api_manager.handle_quota_error(str(e)) and attempt < max_retries:
+                    print(f"🔄 Retrying with {api_manager.current_provider.upper()} API...")
+                    current_llm = api_manager.get_current_llm()
+                    agent = Agent(
+                        task=task_prompt,
+                        llm=current_llm,
+                    )
+                    continue
+                else:
+                    raise e
         
         # Parse detailed agent history
+        try:
         report_generator.parse_agent_history(result)
+        except Exception as parse_error:
+            print(f"⚠️ Warning: Could not parse agent history: {parse_error}")
+            # Add a basic step instead
+            report_generator.add_test_step(
+                "Agent Execution",
+                "completed",
+                f"Agent completed execution. Result: {str(result)[:200]}...",
+                step_type="validation"
+            )
         
         # Add completion test step
         report_generator.add_test_step(
             "Test Execution Complete",
             "passed",
-            f"Browser automation completed successfully. Total actions performed: {len(result.all_results) if hasattr(result, 'all_results') else 'Unknown'}",
+            f"Browser automation completed successfully using {api_manager.current_provider.upper()} API. Total actions performed: {len(result.all_results) if hasattr(result, 'all_results') else 'Unknown'}",
             step_type="validation"
         )
         
@@ -2048,6 +2732,20 @@ async def main():
                         "high"
                     )
         
+        # Handle the case where result might be a list or other structure
+        try:
+            if hasattr(result, '__iter__') and not isinstance(result, str):
+                for i, res in enumerate(result):
+                    if hasattr(res, 'error') and res.error and "quota" in str(res.error).lower():
+                        report_generator.add_finding(
+                            "performance_issues", 
+                            "API Quota Exceeded", 
+                            f"Step {i+1}: {str(res.error)}", 
+                            "high"
+                        )
+        except:
+            pass  # Ignore if we can't iterate
+        
         # Finalize report
         report_generator.finalize_report()
         
@@ -2056,6 +2754,7 @@ async def main():
         
         print("=" * 60)
         print("✅ Advanced browser automation completed successfully!")
+        print(f"🤖 Final API used: {api_manager.current_provider.upper()}")
         print(f"📊 Test Report Generated: {report_filename}")
         print(f"🌐 Open the report in your browser to view detailed results")
         print("=" * 60)
@@ -2070,6 +2769,9 @@ async def main():
             f"Browser automation failed with error: {str(e)}"
         )
         
+        # Add error finding
+        report_generator.add_finding("errors", "Execution Error", str(e), "high")
+        
         # Finalize report even on error
         report_generator.finalize_report()
         report_filename = report_generator.generate_html_report()
@@ -2082,6 +2784,7 @@ async def main():
         print("   - Try with a simpler, more specific prompt")
         print("   - Ensure your internet connection is stable")
         print("   - Check the generated report for more details")
+        print("   - Verify your API keys are valid and have sufficient quota")
         print("=" * 60)
         return None
 

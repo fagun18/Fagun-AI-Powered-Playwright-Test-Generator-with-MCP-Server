@@ -19,7 +19,8 @@ A powerful, intelligent browser automation tool that performs comprehensive webs
 - **Mobile Responsive** - Reports work perfectly on all devices
 
 ### 🤖 **AI-Powered Intelligence**
-- **Google Gemini Integration** - Advanced AI for intelligent test execution
+- **Dual AI Support** - Automatic switching between Gemini and Grok APIs
+- **Smart Fallback** - Seamlessly switches when quota limits are reached
 - **Natural Language Prompts** - Describe your testing needs in plain English
 - **Adaptive Testing** - AI adapts to different website structures and layouts
 - **Smart Error Handling** - Intelligent error detection and recovery
@@ -34,7 +35,7 @@ A powerful, intelligent browser automation tool that performs comprehensive webs
 
 - **Python 3.12+**
 - **pip** (Python package manager)
-- **Google Gemini API key** with access to `gemini-1.5-flash`
+- **At least one API key** (Gemini or Grok recommended)
 - **Internet connection**
 - **Modern web browser** (for viewing reports)
 
@@ -74,30 +75,59 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Step 4: Set Up API Key
+### Step 4: Set Up API Keys
 ```bash
-# Create .env file
+# Create .env file with both API keys
 # Windows (Command Prompt)
-echo GEMINI_API_KEY=your_google_gemini_api_key_here > .env
+echo GEMINI_API_KEY=your_gemini_api_key_here > .env
+echo GROK_API_KEY=your_grok_api_key_here >> .env
 
 # Windows (PowerShell)
 New-Item -Path .env -ItemType File
-Add-Content -Path .env -Value "GEMINI_API_KEY=your_google_gemini_api_key_here"
+Add-Content -Path .env -Value "GEMINI_API_KEY=your_gemini_api_key_here"
+Add-Content -Path .env -Value "GROK_API_KEY=your_grok_api_key_here"
 
 # macOS / Linux
-echo "GEMINI_API_KEY=your_google_gemini_api_key_here" > .env
+echo "GEMINI_API_KEY=your_gemini_api_key_here" > .env
+echo "GROK_API_KEY=your_grok_api_key_here" >> .env
 ```
 
-**Important:** Replace `your_google_gemini_api_key_here` with your actual Google Gemini API key.
+**Important:** 
+- Replace `your_gemini_api_key_here` with your actual Google Gemini API key
+- Replace `your_grok_api_key_here` with your actual Grok API key
+- You need at least one API key, but having both provides automatic fallback
 
 ### Step 5: Verify Installation
 ```bash
 # Check if all dependencies are installed
 pip list
 
+# Test the API manager
+python test_api_manager.py
+
 # Test the installation
 python Fagun.py --help
 ```
+
+## 🔄 Dual API System
+
+The system now supports automatic switching between Gemini and Grok APIs:
+
+### How It Works
+1. **Starts with Gemini** (if available)
+2. **Monitors for quota errors** automatically
+3. **Switches to Grok** when Gemini quota is exceeded
+4. **Provides seamless fallback** without interrupting tests
+
+### API Key Setup
+- **Gemini API**: Get from [Google AI Studio](https://makersuite.google.com/app/apikey)
+- **Grok API**: Get from [X.AI Console](https://console.x.ai/)
+
+### Benefits
+- ✅ **No Interruptions**: Tests continue even when one API hits quota limits
+- ✅ **Automatic Detection**: System detects quota errors and switches automatically
+- ✅ **Cost Effective**: Use both APIs efficiently
+- ✅ **Reliability**: Higher uptime with dual API support
 
 ## 🎮 Usage Commands
 
@@ -236,12 +266,13 @@ python Fagun.py "perform security testing on https://example.com:
 
 #### 1. **API Key Not Found**
 ```bash
-Error: GEMINI_API_KEY not found in environment variables
+Error: No API keys found in environment variables
 ```
 **Solution:**
 - Ensure your `.env` file exists in the project root
-- Check that the API key is correctly formatted
+- Check that at least one API key is correctly formatted
 - Verify the file is named exactly `.env` (not `.env.txt`)
+- You need either `GEMINI_API_KEY` or `GROK_API_KEY` (or both)
 
 #### 2. **Virtual Environment Issues**
 ```bash
@@ -274,13 +305,19 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .venv\Scripts\Activate.ps1
 ```
 
-#### 5. **Model Not Found Error**
+#### 5. **"ainvoke" Error (Fixed)**
+```bash
+"ChatGoogleGenerativeAI" object has no field "ainvoke"
+```
+**Solution:** This error has been fixed in the latest version. Make sure you're using the updated code and requirements.txt.
+
+#### 6. **Model Not Found Error**
 ```bash
 404 models/gemini-pro is not found
 ```
 **Solution:** The tool automatically uses the correct model (`gemini-1.5-flash`). This error usually resolves itself.
 
-#### 6. **Website Not Accessible**
+#### 7. **Website Not Accessible**
 ```bash
 Error during automation: Connection timeout
 ```

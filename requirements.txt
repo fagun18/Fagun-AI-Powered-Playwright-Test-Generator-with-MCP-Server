@@ -1,6 +1,6 @@
-browser-use
-langchain-google-genai
-python-dotenv
-asyncio
-requests
-pathlib
+browser-use>=0.1.0
+langchain>=0.1.0
+langchain-google-genai>=1.0.0
+langchain-openai>=0.1.0
+python-dotenv>=1.0.0
+requests>=2.31.0
