@@ -795,7 +795,7 @@ class TestReportGenerator:
         """Process individual agent action and extract details with enhanced error reporting"""
         # Handle different content types
         if hasattr(result, 'extracted_content'):
-        content = result.extracted_content
+            content = result.extracted_content
             if callable(content):
                 content = str(content)
             elif not isinstance(content, str):
@@ -805,7 +805,7 @@ class TestReportGenerator:
         
         # Handle different result structures
         if hasattr(result, 'success'):
-        status = "passed" if result.success else "failed" if result.error else "warning"
+            status = "passed" if result.success else "failed" if result.error else "warning"
         elif hasattr(result, 'error') and result.error:
             status = "failed"
         else:
@@ -2685,7 +2685,7 @@ async def main():
         max_retries = 2
         for attempt in range(max_retries + 1):
             try:
-        result = await agent.run()
+                result = await agent.run()
                 break
             except Exception as e:
                 if api_manager.handle_quota_error(str(e)) and attempt < max_retries:
@@ -2701,7 +2701,7 @@ async def main():
         
         # Parse detailed agent history
         try:
-        report_generator.parse_agent_history(result)
+            report_generator.parse_agent_history(result)
         except Exception as parse_error:
             print(f"⚠️ Warning: Could not parse agent history: {parse_error}")
             # Add a basic step instead
