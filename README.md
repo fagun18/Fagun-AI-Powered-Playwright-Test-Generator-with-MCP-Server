@@ -1,6 +1,5 @@
 # 🤖 Fagun Browser Automation Testing Agent
 
-<img src="./assets/web-ui.png" alt="Fagun Browser Automation Testing Agent" width="full"/>
 
 **Author:** Mejbaur Bahar Fagun  
 **Role:** Software Engineer in Test  
@@ -20,7 +19,7 @@
 - **Automated Tasks**: Perform repetitive web tasks without manual work
 - **Research & Data Collection**: Gather information from websites automatically
 
-![Fagun Browser Automation Testing Demo](./fagun_automation_testing.gif)
+<img src="./fagun_automation_testing.gif" alt="Fagun Browser Automation Testing Demo" autoplay loop muted/>
 
 ---
 
@@ -320,6 +319,20 @@ Generate comprehensive PDF testing reports with detailed analysis, screenshots, 
 - **Documentation**: Visit the official browser-use documentation
 
 ---
+
+## 🔒 Security Notice
+
+**Important**: Never commit API keys or secrets to the repository. Always use environment variables or `.env` files for sensitive information.
+
+### Setting up API Keys Securely:
+1. Create a `.env` file in the project root
+2. Add your API keys as environment variables:
+   ```
+   OPENAI_API_KEY=your_openai_key_here
+   GOOGLE_API_KEY=your_google_key_here
+   AZURE_OPENAI_API_KEY=your_azure_key_here
+   ```
+3. The `.env` file is automatically ignored by git to prevent accidental commits
 
 ## Installation Guide
 

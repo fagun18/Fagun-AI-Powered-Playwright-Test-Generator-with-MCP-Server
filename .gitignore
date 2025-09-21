@@ -190,3 +190,24 @@ data/
 *.pdf
 
 workflow
+
+# Security - API Keys and Secrets
+*.key
+*.pem
+*.p12
+*.pfx
+*_api_key.txt
+*_secret.txt
+*_token.txt
+secrets.json
+config.json
+.env.local
+.env.production
+.env.staging
+*.env
+
+# Additional security patterns
+**/secrets/**
+**/keys/**
+**/tokens/**
+**/credentials/**
