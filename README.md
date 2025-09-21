@@ -19,7 +19,13 @@
 - **Automated Tasks**: Perform repetitive web tasks without manual work
 - **Research & Data Collection**: Gather information from websites automatically
 
-<img src="./fagun_automation_testing.gif" alt="Fagun Browser Automation Testing Demo" autoplay loop muted/>
+## 🎬 Demo
+
+See the Fagun Browser Automation Testing Agent in action:
+
+![Fagun Browser Automation Testing Demo](./fagun_automation_testing.gif)
+
+*Watch as the AI agent automatically navigates websites, tests functionality, finds bugs, and generates comprehensive reports.*
 
 ---
 
