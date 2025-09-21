@@ -23,7 +23,8 @@
 
 See the Fagun Browser Automation Testing Agent in action:
 
-![Fagun Browser Automation Testing Demo](./fagun_automation_testing.gif)
+<img src="./fagun_automation_testing.gif" alt="Fagun Browser Automation Testing Demo" width="600"/>
+
 
 *Watch as the AI agent automatically navigates websites, tests functionality, finds bugs, and generates comprehensive reports.*
 
