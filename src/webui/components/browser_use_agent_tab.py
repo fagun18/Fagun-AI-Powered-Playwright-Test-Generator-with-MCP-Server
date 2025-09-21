@@ -1,3 +1,14 @@
+"""
+🤖 Fagun Browser Automation Testing Agent - Browser Use Agent Tab
+================================================================
+
+UI components for running and managing browser automation tasks.
+
+Author: Mejbaur Bahar Fagun
+Role: Software Engineer in Test
+LinkedIn: https://www.linkedin.com/in/mejbaur/
+"""
+
 import asyncio
 import json
 import logging
@@ -1020,6 +1031,20 @@ def create_browser_use_agent_tab(webui_manager: WebuiManager):
                 interactive=False,
                 type="filepath",
             )
+            
+            # Auto-generated PDF Report Section
+            gr.Markdown("### 📊 Auto-Generated PDF Report")
+            auto_pdf_report = gr.File(
+                label="📄 Testing Report (PDF)",
+                interactive=False,
+                visible=False
+            )
+            auto_report_status = gr.Textbox(
+                label="📊 Report Status",
+                value="Report will be generated automatically after testing completion",
+                interactive=False,
+                visible=True
+            )
 
     # --- Store Components in Manager ---
     tab_components.update(
@@ -1033,6 +1058,8 @@ def create_browser_use_agent_tab(webui_manager: WebuiManager):
             agent_history_file=agent_history_file,
             recording_gif=recording_gif,
             browser_view=browser_view,
+            auto_pdf_report=auto_pdf_report,
+            auto_report_status=auto_report_status,
         )
     )
     webui_manager.add_components(

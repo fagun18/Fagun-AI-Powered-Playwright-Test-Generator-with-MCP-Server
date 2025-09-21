@@ -1,3 +1,14 @@
+"""
+🤖 Fagun Browser Automation Testing Agent - Utilities
+=====================================================
+
+Utility functions and helpers for the Fagun Browser Automation Testing Agent.
+
+Author: Mejbaur Bahar Fagun
+Role: Software Engineer in Test
+LinkedIn: https://www.linkedin.com/in/mejbaur/
+"""
+
 import base64
 import os
 import time

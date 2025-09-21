@@ -1,3 +1,14 @@
+"""
+🤖 Fagun Browser Automation Testing Agent - Custom Controller
+============================================================
+
+Custom browser controller with enhanced automation capabilities.
+
+Author: Mejbaur Bahar Fagun
+Role: Software Engineer in Test
+LinkedIn: https://www.linkedin.com/in/mejbaur/
+"""
+
 import pdb
 
 import pyperclip

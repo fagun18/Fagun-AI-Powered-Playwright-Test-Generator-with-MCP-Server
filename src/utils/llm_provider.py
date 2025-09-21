@@ -1,3 +1,14 @@
+"""
+🤖 Fagun Browser Automation Testing Agent - LLM Provider
+========================================================
+
+LLM provider utilities and configurations for the Fagun Browser Automation Testing Agent.
+
+Author: Mejbaur Bahar Fagun
+Role: Software Engineer in Test
+LinkedIn: https://www.linkedin.com/in/mejbaur/
+"""
+
 from openai import OpenAI
 import pdb
 from langchain_openai import ChatOpenAI

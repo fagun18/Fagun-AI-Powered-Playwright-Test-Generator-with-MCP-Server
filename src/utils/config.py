@@ -1,3 +1,14 @@
+"""
+🤖 Fagun Browser Automation Testing Agent - Configuration
+=========================================================
+
+Configuration settings and constants for the Fagun Browser Automation Testing Agent.
+
+Author: Mejbaur Bahar Fagun
+Role: Software Engineer in Test
+LinkedIn: https://www.linkedin.com/in/mejbaur/
+"""
+
 PROVIDER_DISPLAY_NAMES = {
     "openai": "OpenAI",
     "azure_openai": "Azure OpenAI",

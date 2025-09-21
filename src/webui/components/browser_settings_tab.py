@@ -1,3 +1,14 @@
+"""
+🤖 Fagun Browser Automation Testing Agent - Browser Settings Tab
+===============================================================
+
+UI components for browser configuration and settings.
+
+Author: Mejbaur Bahar Fagun
+Role: Software Engineer in Test
+LinkedIn: https://www.linkedin.com/in/mejbaur/
+"""
+
 import os
 from distutils.util import strtobool
 import gradio as gr

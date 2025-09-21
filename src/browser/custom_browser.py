@@ -1,3 +1,14 @@
+"""
+🤖 Fagun Browser Automation Testing Agent - Custom Browser
+=========================================================
+
+Custom browser implementation with enhanced automation capabilities.
+
+Author: Mejbaur Bahar Fagun
+Role: Software Engineer in Test
+LinkedIn: https://www.linkedin.com/in/mejbaur/
+"""
+
 import asyncio
 import pdb
 

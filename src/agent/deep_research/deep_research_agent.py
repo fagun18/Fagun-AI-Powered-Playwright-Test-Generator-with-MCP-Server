@@ -1,3 +1,14 @@
+"""
+🤖 Fagun Browser Automation Testing Agent - Deep Research Agent
+==============================================================
+
+Advanced research agent for comprehensive data gathering and analysis.
+
+Author: Mejbaur Bahar Fagun
+Role: Software Engineer in Test
+LinkedIn: https://www.linkedin.com/in/mejbaur/
+"""
+
 import asyncio
 import json
 import logging
@@ -6,6 +17,10 @@ import threading
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypedDict
+
+# Disable telemetry
+os.environ["BROWSER_USE_TELEMETRY"] = "false"
+os.environ["BROWSER_USE_DISABLE_TELEMETRY"] = "true"
 
 from browser_use.browser.browser import BrowserConfig
 from langchain_community.tools.file_management import (

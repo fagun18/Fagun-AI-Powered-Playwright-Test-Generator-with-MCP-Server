@@ -1,3 +1,14 @@
+"""
+🤖 Fagun Browser Automation Testing Agent - WebUI Manager
+=========================================================
+
+Core management system for the Fagun Browser Automation Testing Agent.
+
+Author: Mejbaur Bahar Fagun
+Role: Software Engineer in Test
+LinkedIn: https://www.linkedin.com/in/mejbaur/
+"""
+
 import json
 from collections.abc import Generator
 from typing import TYPE_CHECKING
@@ -37,6 +48,7 @@ class WebuiManager:
         self.bu_controller: Optional[CustomController] = None
         self.bu_chat_history: List[Dict[str, Optional[str]]] = []
         self.bu_response_event: Optional[asyncio.Event] = None
+        self.bu_last_pdf_report: Optional[str] = None
         self.bu_user_help_response: Optional[str] = None
         self.bu_current_task: Optional[asyncio.Task] = None
         self.bu_agent_task_id: Optional[str] = None
@@ -113,10 +125,22 @@ class WebuiManager:
                         yield update_components  # yield provider, let callback run
                         time.sleep(0.1)  # wait for Gradio UI callback
 
-        config_status = self.id_to_component["load_save_config.config_status"]
-        update_components.update(
-            {
-                config_status: config_status.__class__(value=f"Successfully loaded config: {config_path}")
-            }
-        )
+        # Note: load_save_config component was removed from the interface
         yield update_components
+    
+    def update_pdf_report_status(self, report_path: Optional[str] = None, status_message: str = "Report will be generated automatically after testing completion"):
+        """Update the PDF report status and file."""
+        update_components = {}
+        
+        # Update report status
+        if "browser_use_agent.auto_report_status" in self.id_to_component:
+            status_comp = self.id_to_component["browser_use_agent.auto_report_status"]
+            update_components[status_comp] = status_comp.__class__(value=status_message)
+        
+        # Update report file if path is provided
+        if report_path and "browser_use_agent.auto_pdf_report" in self.id_to_component:
+            report_comp = self.id_to_component["browser_use_agent.auto_pdf_report"]
+            update_components[report_comp] = report_comp.__class__(value=report_path, visible=True)
+            self.bu_last_pdf_report = report_path
+        
+        return update_components
