@@ -1,0 +1,19 @@
+{
+  "name": "fagun-playwright-agents",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "test": "playwright test",
+    "agents:init:vscode": "npx playwright init-agents --loop=vscode",
+    "agents:init:claude": "npx playwright init-agents --loop=claude",
+    "agents:init:opencode": "npx playwright init-agents --loop=opencode",
+    "planner": "echo Use your AI tool (e.g., VS Code) to run the planner agent",
+    "generator": "echo Use your AI tool to run the generator agent",
+    "healer": "echo Use your AI tool to run the healer agent"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
+  }
+}
+
+

@@ -10,8 +10,17 @@ LinkedIn: https://www.linkedin.com/in/mejbaur/
 """
 
 import os
-from distutils.util import strtobool
 import gradio as gr
+
+def strtobool(val):
+    """Convert a string representation of truth to true (1) or false (0)."""
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return 1
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return 0
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
 import logging
 from gradio.components import Component
 

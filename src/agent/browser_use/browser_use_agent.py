@@ -34,10 +34,12 @@ from browser_use.utils import time_execution_async
 from dotenv import load_dotenv
 from browser_use.agent.message_manager.utils import is_model_without_tool_support
 from src.utils.screenshot_capture import screenshot_capture
-from src.utils.pdf_report_generator import PDFReportGenerator
 from src.utils.advanced_testing import advanced_testing_engine
 from src.utils.enhanced_ai_testing import enhanced_ai_testing_engine
 from src.utils.error_monitor import error_monitor
+from src.utils.intelligent_form_testing import IntelligentFormTester
+from src.utils.ai_thinking_engine import AIThinkingEngine
+from src.utils.credential_manager import CredentialManager
 from datetime import datetime
 import json
 
@@ -56,6 +58,11 @@ class BrowserUseAgent(Agent):
         self.error_monitor = error_monitor
         # Initialize enhanced AI testing engine
         self.enhanced_ai_testing_engine = enhanced_ai_testing_engine
+        # Initialize intelligent testing components
+        self.intelligent_form_tester = None
+        self.ai_thinking_engine = None
+        self.credential_manager = None
+        self.intelligent_testing_enabled = True
     
     def _set_tool_calling_method(self) -> ToolCallingMethod | None:
         tool_calling_method = self.settings.tool_calling_method
@@ -220,7 +227,7 @@ class BrowserUseAgent(Agent):
 
                 create_history_gif(task=self.task, history=self.state.history, output_path=output_path)
             
-            # Automatically generate PDF report after testing completion
+            # PDF report generation disabled per project settings
             await self._generate_automated_pdf_report()
             
             # Stop error monitoring
@@ -231,51 +238,174 @@ class BrowserUseAgent(Agent):
             except Exception as e:
                 logger.warning(f"Failed to stop error monitoring: {e}")
     
-    async def _generate_automated_pdf_report(self):
-        """Generate PDF report automatically after test completion."""
+    async def initialize_intelligent_testing(self):
+        """Initialize intelligent testing components."""
         try:
-            logger.info("📊 Generating automated PDF report...")
+            if not self.intelligent_testing_enabled:
+                return
             
-            # Prepare test data from execution history
-            test_data = await self._prepare_test_data_for_report()
+            logger.info("🧠 Initializing intelligent testing components...")
             
-            # Debug: Log the prepared test data
-            logger.info(f"Prepared test data - Total tests: {test_data.get('total_tests', 0)}, "
-                       f"Passed: {test_data.get('passed_tests', 0)}, "
-                       f"Failed: {test_data.get('failed_tests', 0)}, "
-                       f"Success rate: {test_data.get('success_rate', 0):.1f}%")
+            # Initialize AI thinking engine
+            self.ai_thinking_engine = AIThinkingEngine(
+                llm=self.chat_model,
+                page=self.browser_context.page
+            )
             
-            # Generate PDF report
-            generator = PDFReportGenerator()
-            report_path = generator.generate_report(test_data)
+            # Initialize intelligent form tester
+            self.intelligent_form_tester = IntelligentFormTester(
+                llm=self.chat_model,
+                page=self.browser_context.page
+            )
             
-            logger.info(f"✅ PDF report generated successfully: {report_path}")
+            # Initialize credential manager
+            self.credential_manager = CredentialManager(
+                page=self.browser_context.page
+            )
             
-            # Store report path for UI access
-            self._last_report_path = report_path
-            
-            # Update UI if webui_manager is available
-            if hasattr(self, 'webui_manager') and self.webui_manager:
-                try:
-                    update_components = self.webui_manager.update_pdf_report_status(
-                        report_path=report_path,
-                        status_message=f"✅ PDF report generated successfully: {os.path.basename(report_path)}"
-                    )
-                    # Note: In a real implementation, you'd need to trigger UI updates here
-                    # This would require integration with the Gradio interface update mechanism
-                except Exception as ui_error:
-                    logger.warning(f"Could not update UI with PDF report: {ui_error}")
+            logger.info("✅ Intelligent testing components initialized")
             
         except Exception as e:
-            logger.error(f"❌ Error generating automated PDF report: {str(e)}")
-            # Update UI with error status if possible
-            if hasattr(self, 'webui_manager') and self.webui_manager:
-                try:
-                    update_components = self.webui_manager.update_pdf_report_status(
-                        status_message=f"❌ Error generating PDF report: {str(e)}"
-                    )
-                except Exception as ui_error:
-                    logger.warning(f"Could not update UI with error status: {ui_error}")
+            logger.error(f"❌ Error initializing intelligent testing: {e}")
+            self.intelligent_testing_enabled = False
+
+    async def run_intelligent_form_testing(self) -> Dict[str, Any]:
+        """Run intelligent form testing with comprehensive scenarios."""
+        try:
+            if not self.intelligent_testing_enabled or not self.intelligent_form_tester:
+                logger.warning("⚠️ Intelligent form testing not available")
+                return {"error": "Intelligent form testing not available"}
+            
+            logger.info("🚀 Starting intelligent form testing...")
+            
+            # Discover form fields
+            form_fields = await self.intelligent_form_tester.discover_form_fields()
+            
+            if not form_fields:
+                logger.warning("⚠️ No form fields found on the page")
+                return {"error": "No form fields found"}
+            
+            # Generate test scenarios
+            test_scenarios = await self.intelligent_form_tester.generate_test_scenarios()
+            
+            # Execute test scenarios
+            test_results = await self.intelligent_form_tester.execute_test_scenarios(test_scenarios)
+            
+            # Generate comprehensive report
+            report = await self.intelligent_form_tester.generate_comprehensive_report()
+            
+            # Add detailed error report
+            error_report = self.intelligent_form_tester.get_detailed_error_report()
+            report["detailed_error_analysis"] = error_report
+            
+            logger.info(f"✅ Intelligent form testing complete: {len(test_results)} tests executed")
+            return report
+            
+        except Exception as e:
+            logger.error(f"❌ Error in intelligent form testing: {e}")
+            return {"error": str(e)}
+
+    async def run_intelligent_credential_testing(self) -> Dict[str, Any]:
+        """Run intelligent credential testing with various scenarios."""
+        try:
+            if not self.intelligent_testing_enabled or not self.credential_manager:
+                logger.warning("⚠️ Intelligent credential testing not available")
+                return {"error": "Intelligent credential testing not available"}
+            
+            logger.info("🔐 Starting intelligent credential testing...")
+            
+            # Run comprehensive credential testing
+            report = await self.credential_manager.run_comprehensive_credential_testing()
+            
+            logger.info("✅ Intelligent credential testing complete")
+            return report
+            
+        except Exception as e:
+            logger.error(f"❌ Error in intelligent credential testing: {e}")
+            return {"error": str(e)}
+
+    async def run_ai_thinking_analysis(self) -> Dict[str, Any]:
+        """Run AI thinking analysis of the current page."""
+        try:
+            if not self.intelligent_testing_enabled or not self.ai_thinking_engine:
+                logger.warning("⚠️ AI thinking analysis not available")
+                return {"error": "AI thinking analysis not available"}
+            
+            logger.info("🤔 Starting AI thinking analysis...")
+            
+            # Analyze the page intelligently
+            page_analysis = await self.ai_thinking_engine.analyze_page_intelligence()
+            
+            # Generate testing strategy
+            testing_strategy = await self.ai_thinking_engine.generate_testing_strategy(page_analysis)
+            
+            # Get thinking summary
+            thinking_summary = self.ai_thinking_engine.get_thinking_summary()
+            
+            analysis_result = {
+                "page_analysis": page_analysis,
+                "testing_strategy": {
+                    "approach": testing_strategy.approach,
+                    "priority_order": testing_strategy.priority_order,
+                    "focus_areas": testing_strategy.focus_areas,
+                    "risk_assessment": testing_strategy.risk_assessment,
+                    "estimated_duration": testing_strategy.estimated_duration,
+                    "reasoning": testing_strategy.reasoning
+                },
+                "thinking_summary": thinking_summary
+            }
+            
+            logger.info("✅ AI thinking analysis complete")
+            return analysis_result
+            
+        except Exception as e:
+            logger.error(f"❌ Error in AI thinking analysis: {e}")
+            return {"error": str(e)}
+
+    async def run_comprehensive_intelligent_testing(self) -> Dict[str, Any]:
+        """Run comprehensive intelligent testing combining all features."""
+        try:
+            if not self.intelligent_testing_enabled:
+                logger.warning("⚠️ Intelligent testing not enabled")
+                return {"error": "Intelligent testing not enabled"}
+            
+            logger.info("🎯 Starting comprehensive intelligent testing...")
+            
+            # Initialize intelligent testing components
+            await self.initialize_intelligent_testing()
+            
+            # Run AI thinking analysis
+            ai_analysis = await self.run_ai_thinking_analysis()
+            
+            # Run intelligent form testing
+            form_testing = await self.run_intelligent_form_testing()
+            
+            # Run intelligent credential testing
+            credential_testing = await self.run_intelligent_credential_testing()
+            
+            # Combine all results
+            comprehensive_result = {
+                "ai_analysis": ai_analysis,
+                "form_testing": form_testing,
+                "credential_testing": credential_testing,
+                "timestamp": datetime.now().isoformat(),
+                "summary": {
+                    "ai_analysis_success": "error" not in ai_analysis,
+                    "form_testing_success": "error" not in form_testing,
+                    "credential_testing_success": "error" not in credential_testing
+                }
+            }
+            
+            logger.info("✅ Comprehensive intelligent testing complete")
+            return comprehensive_result
+            
+        except Exception as e:
+            logger.error(f"❌ Error in comprehensive intelligent testing: {e}")
+            return {"error": str(e)}
+
+    async def _generate_automated_pdf_report(self):
+        """PDF report generation disabled."""
+        logger.info("📊 PDF report generation is disabled. Skipping.")
     
     async def _prepare_test_data_for_report(self):
         """Prepare test data from execution history for PDF report."""

@@ -1015,6 +1015,35 @@ def create_browser_use_agent_tab(webui_manager: WebuiManager):
                 "🗑️ Clear", interactive=True, variant="secondary", scale=2
             )
             run_button = gr.Button("▶️ Submit Task", variant="primary", scale=3)
+        
+        # Intelligent Testing Section
+        gr.Markdown("### 🧠 Intelligent Testing Features")
+        with gr.Row():
+            intelligent_form_test_btn = gr.Button(
+                "🔍 Smart Form Testing", 
+                variant="secondary", 
+                scale=2,
+                interactive=True
+            )
+            intelligent_credential_test_btn = gr.Button(
+                "🔐 Smart Credential Testing", 
+                variant="secondary", 
+                scale=2,
+                interactive=True
+            )
+            ai_analysis_btn = gr.Button(
+                "🤔 AI Page Analysis", 
+                variant="secondary", 
+                scale=2,
+                interactive=True
+            )
+        with gr.Row():
+            comprehensive_test_btn = gr.Button(
+                "🎯 Comprehensive Intelligent Testing", 
+                variant="primary", 
+                scale=3,
+                interactive=True
+            )
 
         browser_view = gr.HTML(
             value="<div style='width:100%; height:50vh; display:flex; justify-content:center; align-items:center; border:1px solid #ccc; background-color:#f0f0f0;'><p>Browser View (Requires Headless=True)</p></div>",
@@ -1055,6 +1084,10 @@ def create_browser_use_agent_tab(webui_manager: WebuiManager):
             run_button=run_button,
             stop_button=stop_button,
             pause_resume_button=pause_resume_button,
+            intelligent_form_test_btn=intelligent_form_test_btn,
+            intelligent_credential_test_btn=intelligent_credential_test_btn,
+            ai_analysis_btn=ai_analysis_btn,
+            comprehensive_test_btn=comprehensive_test_btn,
             agent_history_file=agent_history_file,
             recording_gif=recording_gif,
             browser_view=browser_view,
@@ -1093,6 +1126,159 @@ def create_browser_use_agent_tab(webui_manager: WebuiManager):
         update_dict = await handle_clear(webui_manager)
         yield update_dict
 
+    # Intelligent Testing Handlers
+    async def intelligent_form_test_wrapper() -> AsyncGenerator[Dict[Component, Any], None]:
+        """Wrapper for intelligent form testing."""
+        try:
+            webui_manager.bu_chat_history.append({
+                "role": "assistant", 
+                "content": "🔍 Starting intelligent form testing... This will discover form fields and test various scenarios automatically."
+            })
+            
+            if webui_manager.bu_agent and hasattr(webui_manager.bu_agent, 'run_intelligent_form_testing'):
+                result = await webui_manager.bu_agent.run_intelligent_form_testing()
+                
+                if "error" in result:
+                    webui_manager.bu_chat_history.append({
+                        "role": "assistant", 
+                        "content": f"❌ Form testing error: {result['error']}"
+                    })
+                else:
+                    summary = result.get('summary', {})
+                    webui_manager.bu_chat_history.append({
+                        "role": "assistant", 
+                        "content": f"✅ Form testing complete!\n\n📊 Results:\n- Total Tests: {summary.get('total_tests', 0)}\n- Passed: {summary.get('passed_tests', 0)}\n- Failed: {summary.get('failed_tests', 0)}\n- Success Rate: {summary.get('success_rate', 0)}%"
+                    })
+            else:
+                webui_manager.bu_chat_history.append({
+                    "role": "assistant", 
+                    "content": "❌ Intelligent form testing not available. Please run a regular task first to initialize the agent."
+                })
+        except Exception as e:
+            webui_manager.bu_chat_history.append({
+                "role": "assistant", 
+                "content": f"❌ Error in form testing: {str(e)}"
+            })
+        
+        yield {chatbot: webui_manager.bu_chat_history}
+
+    async def intelligent_credential_test_wrapper() -> AsyncGenerator[Dict[Component, Any], None]:
+        """Wrapper for intelligent credential testing."""
+        try:
+            webui_manager.bu_chat_history.append({
+                "role": "assistant", 
+                "content": "🔐 Starting intelligent credential testing... This will test various email/password combinations and security scenarios."
+            })
+            
+            if webui_manager.bu_agent and hasattr(webui_manager.bu_agent, 'run_intelligent_credential_testing'):
+                result = await webui_manager.bu_agent.run_intelligent_credential_testing()
+                
+                if "error" in result:
+                    webui_manager.bu_chat_history.append({
+                        "role": "assistant", 
+                        "content": f"❌ Credential testing error: {result['error']}"
+                    })
+                else:
+                    summary = result.get('summary', {})
+                    webui_manager.bu_chat_history.append({
+                        "role": "assistant", 
+                        "content": f"✅ Credential testing complete!\n\n📊 Results:\n- Total Tests: {summary.get('total_tests', 0)}\n- Passed: {summary.get('passed_tests', 0)}\n- Failed: {summary.get('failed_tests', 0)}\n- Success Rate: {summary.get('success_rate', 0)}%"
+                    })
+            else:
+                webui_manager.bu_chat_history.append({
+                    "role": "assistant", 
+                    "content": "❌ Intelligent credential testing not available. Please run a regular task first to initialize the agent."
+                })
+        except Exception as e:
+            webui_manager.bu_chat_history.append({
+                "role": "assistant", 
+                "content": f"❌ Error in credential testing: {str(e)}"
+            })
+        
+        yield {chatbot: webui_manager.bu_chat_history}
+
+    async def ai_analysis_wrapper() -> AsyncGenerator[Dict[Component, Any], None]:
+        """Wrapper for AI page analysis."""
+        try:
+            webui_manager.bu_chat_history.append({
+                "role": "assistant", 
+                "content": "🤔 Starting AI page analysis... This will intelligently analyze the current page and generate testing strategies."
+            })
+            
+            if webui_manager.bu_agent and hasattr(webui_manager.bu_agent, 'run_ai_thinking_analysis'):
+                result = await webui_manager.bu_agent.run_ai_thinking_analysis()
+                
+                if "error" in result:
+                    webui_manager.bu_chat_history.append({
+                        "role": "assistant", 
+                        "content": f"❌ AI analysis error: {result['error']}"
+                    })
+                else:
+                    page_analysis = result.get('page_analysis', {})
+                    strategy = result.get('testing_strategy', {})
+                    
+                    analysis_text = f"✅ AI analysis complete!\n\n"
+                    analysis_text += f"📄 Page Type: {page_analysis.get('page_type', 'Unknown')}\n"
+                    analysis_text += f"📝 Form Complexity: {page_analysis.get('form_complexity', 'Unknown')}\n"
+                    analysis_text += f"🔒 Security Indicators: {len(page_analysis.get('security_indicators', []))}\n"
+                    analysis_text += f"⚠️ Potential Issues: {len(page_analysis.get('potential_issues', []))}\n\n"
+                    analysis_text += f"🎯 Testing Strategy:\n"
+                    analysis_text += f"- Approach: {strategy.get('approach', 'Unknown')}\n"
+                    analysis_text += f"- Focus Areas: {', '.join(strategy.get('focus_areas', []))}\n"
+                    analysis_text += f"- Estimated Duration: {strategy.get('estimated_duration', 0)} minutes\n"
+                    
+                    webui_manager.bu_chat_history.append({
+                        "role": "assistant", 
+                        "content": analysis_text
+                    })
+            else:
+                webui_manager.bu_chat_history.append({
+                    "role": "assistant", 
+                    "content": "❌ AI analysis not available. Please run a regular task first to initialize the agent."
+                })
+        except Exception as e:
+            webui_manager.bu_chat_history.append({
+                "role": "assistant", 
+                "content": f"❌ Error in AI analysis: {str(e)}"
+            })
+        
+        yield {chatbot: webui_manager.bu_chat_history}
+
+    async def comprehensive_test_wrapper() -> AsyncGenerator[Dict[Component, Any], None]:
+        """Wrapper for comprehensive intelligent testing."""
+        try:
+            webui_manager.bu_chat_history.append({
+                "role": "assistant", 
+                "content": "🎯 Starting comprehensive intelligent testing... This will run all intelligent testing features including AI analysis, form testing, and credential testing."
+            })
+            
+            if webui_manager.bu_agent and hasattr(webui_manager.bu_agent, 'run_comprehensive_intelligent_testing'):
+                result = await webui_manager.bu_agent.run_comprehensive_intelligent_testing()
+                
+                if "error" in result:
+                    webui_manager.bu_chat_history.append({
+                        "role": "assistant", 
+                        "content": f"❌ Comprehensive testing error: {result['error']}"
+                    })
+                else:
+                    summary = result.get('summary', {})
+                    webui_manager.bu_chat_history.append({
+                        "role": "assistant", 
+                        "content": f"✅ Comprehensive intelligent testing complete!\n\n📊 Summary:\n- AI Analysis: {'✅' if summary.get('ai_analysis_success') else '❌'}\n- Form Testing: {'✅' if summary.get('form_testing_success') else '❌'}\n- Credential Testing: {'✅' if summary.get('credential_testing_success') else '❌'}\n\nAll intelligent testing features have been executed. Check the detailed results above."
+                    })
+            else:
+                webui_manager.bu_chat_history.append({
+                    "role": "assistant", 
+                    "content": "❌ Comprehensive intelligent testing not available. Please run a regular task first to initialize the agent."
+                })
+        except Exception as e:
+            webui_manager.bu_chat_history.append({
+                "role": "assistant", 
+                "content": f"❌ Error in comprehensive testing: {str(e)}"
+            })
+        
+        yield {chatbot: webui_manager.bu_chat_history}
+
     # --- Connect Event Handlers using the Wrappers --
     run_button.click(
         fn=submit_wrapper, inputs=all_managed_components, outputs=run_tab_outputs, trigger_mode="multiple"
@@ -1105,3 +1291,9 @@ def create_browser_use_agent_tab(webui_manager: WebuiManager):
         fn=pause_resume_wrapper, inputs=None, outputs=run_tab_outputs
     )
     clear_button.click(fn=clear_wrapper, inputs=None, outputs=run_tab_outputs)
+    
+    # Intelligent Testing Button Handlers
+    intelligent_form_test_btn.click(fn=intelligent_form_test_wrapper, inputs=None, outputs=run_tab_outputs)
+    intelligent_credential_test_btn.click(fn=intelligent_credential_test_wrapper, inputs=None, outputs=run_tab_outputs)
+    ai_analysis_btn.click(fn=ai_analysis_wrapper, inputs=None, outputs=run_tab_outputs)
+    comprehensive_test_btn.click(fn=comprehensive_test_wrapper, inputs=None, outputs=run_tab_outputs)

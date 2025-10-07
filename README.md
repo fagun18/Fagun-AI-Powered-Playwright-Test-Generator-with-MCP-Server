@@ -91,7 +91,52 @@ The Fagun Browser Automation Testing Agent includes cutting-edge AI-powered test
 
 ## 📊 PDF Report Generation
 
-Generate comprehensive PDF testing reports with detailed analysis, screenshots, and recommendations:
+PDF report generation is currently disabled.
+## 🎭 Playwright Agents
+
+This project supports Playwright Agents (planner, generator, healer) to automate test planning, generation, and healing.
+
+### Getting Started
+
+1) Ensure Node.js is installed.
+2) From the repository root, run:
+
+```bash
+npx playwright init-agents --loop=vscode
+```
+
+This will add agent definitions under `.github/`, a `specs/` directory for human-readable plans, and seed/generator artifacts.
+
+### Workflow
+
+- **planner**: explores the app and produces a Markdown plan in `specs/`.
+- **generator**: converts Markdown plans into Playwright tests under `tests/`.
+- **healer**: runs tests and proposes automated fixes for failures.
+
+Artifacts expected:
+
+```
+repo/
+  .github/                    # agent definitions
+  specs/                      # human-readable test plans
+    basic-operations.md
+  tests/                      # generated Playwright tests
+    seed.spec.ts              # seed test for environment
+  playwright.config.ts
+```
+
+Regenerate agents after Playwright upgrades:
+
+```bash
+npx playwright init-agents --loop=vscode
+```
+
+Other loops:
+
+```bash
+npx playwright init-agents --loop=claude
+npx playwright init-agents --loop=opencode
+```
 
 ### 🎯 **Report Features:**
 - **Executive Summary** - High-level overview of test results
